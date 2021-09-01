@@ -1,8 +1,8 @@
 #[derive(Debug)]
 pub struct Line {
-    pre: usize,
-    post: usize,
-    text: Vec<char>
+    pub pre: usize,
+    pub post: usize,
+    pub text: Vec<char>
 }
 
 impl Line {
@@ -112,7 +112,7 @@ impl Line {
         line.push_str(&i.to_string());
         line.push_str(" | `");
         for i in 0..self.pre { line.push(self.text[i]); }
-        for i in self.post..self.text.len() { line.push(self.text[i]); }
+        for i in self.post+1..self.text.len() { line.push(self.text[i]); }
         line.push('`');
         println!("{}", line);
         //println!("{},{} / {} | {:?}",self.pre, self.post, self.text.len(), self.text)
