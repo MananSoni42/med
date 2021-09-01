@@ -27,7 +27,7 @@ impl SubEditor {
         let mut subed = SubEditor {
             curr_line_num: 0,
             curr_line: None,
-            lines: LinkedList::<Line>::with_capacity(8)
+            lines: LinkedList::<Line>::new()
         };
 
         let path = Path::new(path);
@@ -96,6 +96,16 @@ impl SubEditor {
         let lineref = self.curr_line.clone().unwrap();
         let line = self.lines.node_mut(&lineref).unwrap();
         line.move_end()
+    }
+
+    pub fn move_first(&mut self) {
+        self.curr_line_num = 1;
+        self.curr_line = Some(self.lines.head_node().unwrap());
+    }
+
+    pub fn move_last(&mut self) {
+        self.curr_line_num = self.lines.len();
+        self.curr_line = Some(self.lines.tail_node().unwrap());
     }
 
     pub fn backspace(&mut self) -> bool {

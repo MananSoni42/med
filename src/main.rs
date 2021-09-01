@@ -9,6 +9,8 @@ fn main() {
     editor.move_r();
     editor.move_r();
     editor.insert_newline();
+    editor.insert('m');
+    editor.move_first();
     editor.show();
 }
 
