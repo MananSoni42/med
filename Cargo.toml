@@ -1,5 +1,5 @@
 [package]
-name = "rust-editor"
+name = "med"
 version = "0.1.0"
 edition = "2018"
 
@@ -7,4 +7,5 @@ edition = "2018"
 
 [dependencies]
 crossterm = "0.20"
+deepmesa = "0.9.0"
 
