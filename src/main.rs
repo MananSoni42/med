@@ -1,7 +1,5 @@
 mod editor;
 use std::io::{self, BufRead, Write, stdout};
-use std::time::Duration;
-use std::thread;
 
 /*
 fn main() {
@@ -22,9 +20,11 @@ fn main() {
         term: &mut stdout(),
         subed: editor::subeditor::SubEditor::open("/home/manan/Projects/rust-editor/files/test1.txt")
     };
+
     ed.init();
-    ed.show();
-    thread::sleep(Duration::from_millis(4000));
+    
+    ed.start();
+    
     ed.exit();
 }
 
