@@ -1,8 +1,7 @@
-use deepmesa::lists::{LinkedList,linkedlist::Node};
+use deepmesa::lists::{LinkedList, linkedlist::Node};
 use std::fs::File;
 use std::path::Path;
 use std::io::{self,BufRead,Write};
-
 mod line;
 use line::Line;
 
@@ -16,9 +15,9 @@ where P: AsRef<Path>, {
 
 #[derive(Debug)]
 pub struct SubEditor {
-    curr_line_num: usize,
-    curr_line: Option<Node<Line>>,
-    lines: LinkedList::<Line>
+    pub curr_line_num: usize,
+    pub curr_line: Option<Node<Line>>,
+    pub lines: LinkedList::<Line>
 }
 
 impl SubEditor {
@@ -50,39 +49,62 @@ impl SubEditor {
         return subed;
     }
 
-    pub fn move_l(&mut self) -> bool {
+    pub fn move_left(&mut self) -> bool {
         let lineref = self.curr_line.clone().unwrap();
         let line = self.lines.node_mut(&lineref).unwrap();
         line.move_l()
     }
 
-    pub fn move_r(&mut self) -> bool {
+    pub fn move_right(&mut self) -> bool {
         let lineref = self.curr_line.clone().unwrap();
         let line = self.lines.node_mut(&lineref).unwrap();
         line.move_r()
     }
 
-    pub fn move_u(&mut self) -> bool {
+    pub fn move_up(&mut self) -> bool {
         let lineref = self.curr_line.clone().unwrap();
+        let final_cursor_pos = self.lines.node(&lineref).unwrap().cursor();
+
         match self.lines.prev_node(&lineref) {
             Some(v) => { 
+                let mut curr_line = self.lines.node_mut(&v).unwrap();
+                if final_cursor_pos > curr_line.len() { 
+                    curr_line.move_end(); 
+                } else if curr_line.cursor() > final_cursor_pos {
+                    while curr_line.cursor() > final_cursor_pos { curr_line.move_l(); }
+                } else {
+                    while curr_line.cursor() < final_cursor_pos { curr_line.move_r(); }
+                }
+
                 self.curr_line = Some(v); 
                 self.curr_line_num -= 1;
+
                 true 
             },
             None => false 
         }
     }
  
-    pub fn move_d(&mut self) -> bool {
+    pub fn move_down(&mut self) -> bool {
         let lineref = self.curr_line.clone().unwrap();
+        let final_cursor_pos = self.lines.node(&lineref).unwrap().cursor();
+
         match self.lines.next_node(&lineref) {
             Some(v) => { 
+                let mut curr_line = self.lines.node_mut(&v).unwrap();
+                if final_cursor_pos > curr_line.len() { 
+                    curr_line.move_end(); 
+                } else {
+                    while curr_line.cursor() > final_cursor_pos { curr_line.move_l(); }
+                    while curr_line.cursor() < final_cursor_pos { curr_line.move_r(); }
+                }
+
                 self.curr_line = Some(v); 
                 self.curr_line_num += 1;
+                
                 true 
             },
-            None => false
+            None => false 
         }
     }
 
@@ -101,11 +123,19 @@ impl SubEditor {
     pub fn move_first(&mut self) {
         self.curr_line_num = 1;
         self.curr_line = Some(self.lines.head_node().unwrap());
+
+        let lineref = self.curr_line.clone().unwrap();
+        let line = self.lines.node_mut(&lineref).unwrap();
+        line.move_start();
     }
 
     pub fn move_last(&mut self) {
         self.curr_line_num = self.lines.len();
         self.curr_line = Some(self.lines.tail_node().unwrap());
+
+        let lineref = self.curr_line.clone().unwrap();
+        let line = self.lines.node_mut(&lineref).unwrap();
+        line.move_start();
     }
 
     pub fn backspace(&mut self) -> bool {
@@ -135,9 +165,9 @@ impl SubEditor {
 
     pub fn show(&self) {
         let line = self.lines.node(&self.curr_line.clone().unwrap()).unwrap();
-        println!("line: {}, cursor: {}", self.curr_line_num, line.pre);
+        println!("line: {}, cursor: {}", self.curr_line_num, line.cursor());
         for (i,line) in self.lines.iter().enumerate() {
-            line.show(i+1);
+            println!("{} | {}", i+1, line.show());
         }
     }
 }    

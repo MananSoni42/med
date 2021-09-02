@@ -1,4 +1,4 @@
-use std::io::{self, BufRead, Write, stdout};
+use std::io::{BufRead, Write};
 use std::time::Duration;
 use crossterm::{
     cursor::{self,position},
@@ -9,12 +9,56 @@ use crossterm::{
     Command, ExecutableCommand, Result
 };
 
-static CURSOR_WIDTH: usize = 10;
-static COMMAND_WIDTH: usize = 10;
+pub mod subeditor;
 
-fn editor_input(term: &mut Write) {
-    let SEP: StyledContent<&str> = "|".white();
+pub struct Editor<'a> {
+    pub term: &'a mut Write,
+    pub subed: subeditor::SubEditor,
+}
 
+impl Editor<'_> {
+
+    pub fn init(&mut self) {
+        self.term.execute(terminal::EnterAlternateScreen).unwrap();
+        terminal::enable_raw_mode().unwrap();    
+        self.term.execute(terminal::Clear(terminal::ClearType::All));
+    }
+
+    pub fn exit(&mut self) {
+        self.term.execute(terminal::LeaveAlternateScreen).unwrap();
+        terminal::disable_raw_mode().unwrap();    
+    }
+
+    pub fn show(&mut self) {
+
+        let (cols,rows) = terminal::size().unwrap();
+
+        let SEP: StyledContent<&str> = "|".white();             
+        let CURSOR_WIDTH: usize = 10;
+        let COMMAND_WIDTH: usize = 10;
+        let TITLE_WIDTH: usize = cols as usize - CURSOR_WIDTH - COMMAND_WIDTH - 10;
+
+        self.term.execute(cursor::MoveTo(0,0));
+        self.term.execute(style::Print(
+            format!("{} {:^cwidth$} {} {:^twidth$} {} {:^cmwidth$} {}", 
+                    SEP, "(0,0)", SEP, "--- Med v0.1 ---", SEP, "N", SEP,
+                    twidth=TITLE_WIDTH, cwidth=CURSOR_WIDTH, cmwidth=COMMAND_WIDTH)
+                )
+        );
+        self.term.execute(cursor::MoveToNextLine(1));
+        self.term.execute(style::Print(String::from_utf8(vec![b'-'; cols as usize]).unwrap().white()));
+        self.term.execute(cursor::MoveToNextLine(1));
+        
+        for line in self.subed.lines.iter() {
+            print!("{}", line.show());
+            self.term.execute(cursor::MoveToNextLine(1));
+        }
+
+        self.term.execute(cursor::MoveTo(0,2));
+    }
+}
+
+fn editor(term: &mut Write) {
     loop {
         // Wait up to 1s for another event
         if poll(Duration::from_millis(1_000)).unwrap() {
@@ -58,30 +102,4 @@ fn editor_input(term: &mut Write) {
             // Timeout expired, no event for 1s
         }
     }
-}
-
-pub fn editor_test() -> Result<()> {
-    let SEP: StyledContent<&str> = "|".white();
-    let (cols,rows) = terminal::size().unwrap();
-    let mut term = stdout();
-    let TITLE_WIDTH: usize = cols as usize - CURSOR_WIDTH - COMMAND_WIDTH - 10;
-
-    term.execute(terminal::EnterAlternateScreen)?;
-    terminal::enable_raw_mode()?;
-    term.execute(cursor::MoveTo(0,0));
-    term.execute(terminal::Clear(terminal::ClearType::All));
-    term.execute(style::Print(
-        format!("{} {:^cwidth$} {} {:^twidth$} {} {:^cmwidth$} {}", 
-                SEP, "(2,21)", SEP, "--- Med v0.1 ---", SEP, "N", SEP,
-                twidth=TITLE_WIDTH, cwidth=CURSOR_WIDTH, cmwidth=COMMAND_WIDTH)
-            )
-    );
-    term.execute(cursor::MoveToNextLine(1));
-    term.execute(style::Print(String::from_utf8(vec![b'-'; cols as usize]).unwrap().white()));
-    term.execute(cursor::MoveToNextLine(1));
-    editor_input(&mut term);
-
-    terminal::disable_raw_mode()?;
-    term.execute(terminal::LeaveAlternateScreen)?;
-    Ok(())
 }

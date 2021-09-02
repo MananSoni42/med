@@ -15,6 +15,14 @@ impl Line {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.pre + self.text.len() - 1 - self.post
+    }
+
+    pub fn cursor(&self) -> usize {
+        self.pre
+    }
+
     pub fn init_with_line(newline: String) -> Line {
         let mut len = 32;
         while len < newline.len() { len*= 2; }
@@ -102,19 +110,16 @@ impl Line {
     }
 
     pub fn move_end(&mut self) {
-        while self.post < self.text.len() {
+        while self.post + 1 != self.text.len() {
             self.move_r();
         }
     }
 
-    pub fn show(&self, i: usize) {
+    pub fn show(&self) -> String {
         let mut line = String::new();
-        line.push_str(&i.to_string());
-        line.push_str(" | `");
         for i in 0..self.pre { line.push(self.text[i]); }
         for i in self.post+1..self.text.len() { line.push(self.text[i]); }
-        line.push('`');
-        println!("{}", line);
-        //println!("{},{} / {} | {:?}",self.pre, self.post, self.text.len(), self.text)
+        
+        line
     }
 }    
