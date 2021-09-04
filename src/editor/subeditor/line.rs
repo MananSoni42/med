@@ -1,8 +1,8 @@
 #[derive(Debug)]
 pub struct Line {
-    pub pre: usize,
-    pub post: usize,
-    pub text: Vec<char>
+    pre: usize,
+    post: usize,
+    text: Vec<char>
 }
 
 impl Line {
@@ -21,6 +21,26 @@ impl Line {
 
     pub fn cursor(&self) -> usize {
         self.pre
+    }
+
+    pub fn get_pre(&self) -> usize {
+        self.pre
+    }
+
+    pub fn get_post(&self) -> usize {
+        self.post
+    }
+
+    pub fn set_post(&mut self, newpost: usize) {
+        self.post = newpost;
+    }
+
+    pub fn get_len(&self) -> usize {
+        self.text.len()
+    }
+
+    pub fn get_text(&self, i: usize) -> char {
+        self.text[i]
     }
 
     pub fn init_with_line(newline: String) -> Line {

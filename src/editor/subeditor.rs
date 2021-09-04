@@ -15,9 +15,9 @@ where P: AsRef<Path>, {
 
 #[derive(Debug)]
 pub struct SubEditor {
-    pub curr_line_num: usize,
-    pub curr_line: Option<Node<Line>>,
-    pub lines: LinkedList::<Line>
+    curr_line_num: usize,
+    curr_line: Option<Node<Line>>,
+    lines: LinkedList::<Line>
 }
 
 impl SubEditor {
@@ -46,7 +46,24 @@ impl SubEditor {
             }
         }
 
+        subed.move_first();
+
         return subed;
+    }
+
+    pub fn curr_line(&self) -> usize {
+        self.curr_line_num
+    }
+
+    pub fn get_lines(&self) -> deepmesa::lists::linkedlist::Iter<Line> {
+        self.lines.iter()
+    }
+
+    pub fn cursor(&self) -> usize {
+        let lineref = self.curr_line.clone().unwrap();
+        let line = self.lines.node(&lineref).unwrap();
+
+        line.cursor()
     }
 
     pub fn move_left(&mut self) -> bool {
@@ -154,19 +171,33 @@ impl SubEditor {
         let lineref = self.curr_line.clone().unwrap();
         let line = self.lines.node_mut(&lineref).unwrap();
         let mut newline = String::new();
-        for i in line.post+1 .. line.text.len() {
-            newline.push(line.text[i]);
-        }
+        for i in line.get_post()+1..line.get_len() { newline.push(line.get_text(i)); }
 
-        line.post = line.text.len()-1;
+        line.set_post(line.get_len()-1);
         self.curr_line = Some(self.lines.push_next(&lineref, Line::init_with_line(newline)).unwrap());
         self.curr_line_num += 1;
+    }
+
+    pub fn show_curr_line(&mut self) -> String {
+        let lineref = self.curr_line.clone().unwrap();
+        let line = self.lines.node(&lineref).unwrap();
+        line.show()
+    }
+
+    pub fn show_curr_post_line(&mut self) -> String {
+        let lineref = self.curr_line.clone().unwrap();
+        let line = self.lines.node(&lineref).unwrap();
+        
+        let mut post_line = String::new();
+        for i in line.get_post()+1..line.get_len() { post_line.push(line.get_text(i)); }
+
+        post_line
     }
 
     pub fn show(&self) {
         let line = self.lines.node(&self.curr_line.clone().unwrap()).unwrap();
         println!("line: {}, cursor: {}", self.curr_line_num, line.cursor());
-        for (i,line) in self.lines.iter().enumerate() {
+        for (i,line) in self.get_lines().enumerate() {
             println!("{} | {}", i+1, line.show());
         }
     }
