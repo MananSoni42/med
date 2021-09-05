@@ -176,19 +176,18 @@ impl SubEditor {
             if self.move_down() {
                 let lineref = self.curr_line.clone().unwrap();
                 self.lines.pop_prev(&lineref).unwrap();           
-                
+                self.curr_line_num -= 1;
                 return false;
 
-            } else  if self.move_up() {
+            } else if self.move_up() {
                 let lineref = self.curr_line.clone().unwrap();
-                self.lines.pop_next(&lineref).unwrap();   
-                self.curr_line_num -= 1;      
-                
+                self.lines.pop_next(&lineref).unwrap();                   
                 return true;
             }
             else {
                 panic!("Anakin start panikin, no lines")
             }
+
         }
 
         false

@@ -135,7 +135,7 @@ impl Editor<'_> {
                         self.term.execute(style::Print(self.subed.show_curr_post_line()));
                         self.term.execute(cursor::MoveToColumn(0));
                         */
-                        self.term.execute(terminal::Clear(terminal::ClearType::CurrentLine));
+                        self.term.execute(terminal::Clear(terminal::ClearType::FromCursorDown));
                         self.term.execute(cursor::MoveToNextLine(1));
                         self.show_content();
                     } 
@@ -167,7 +167,6 @@ impl Editor<'_> {
                 }
                     Ok(Event::Resize(_,_)) => {
                         self.show_content();
-                        self.show_header();
                     }
                     Err(e) => {
                         // error handling
@@ -176,6 +175,7 @@ impl Editor<'_> {
                         // nothing for mouse events
                     }
                 }
+                self.show_header();
         } else {
                 // Timeout expired, no event for 1s
             }
