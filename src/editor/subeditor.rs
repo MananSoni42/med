@@ -195,10 +195,19 @@ impl SubEditor {
     }
 
     pub fn show(&self) {
-        let line = self.lines.node(&self.curr_line.clone().unwrap()).unwrap();
-        println!("line: {}, cursor: {}", self.curr_line_num, line.cursor());
+        println!("line: {}, cursor: {}", self.curr_line_num, self.cursor());
         for (i,line) in self.get_lines().enumerate() {
             println!("{} | {}", i+1, line.show());
+        }
+    }
+
+    pub fn save(&self, path: &str) {
+
+        let path = Path::new(path);
+        let mut file = File::create(path).unwrap();
+
+        for (i,line) in self.get_lines().enumerate() {
+            line.save(&mut file);
         }
     }
 }    

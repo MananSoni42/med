@@ -1,3 +1,6 @@
+use std::fs::File;
+use std::io::{Write};
+
 #[derive(Debug)]
 pub struct Line {
     pre: usize,
@@ -141,5 +144,11 @@ impl Line {
         for i in self.post+1..self.text.len() { line.push(self.text[i]); }
         
         line
+    }
+
+    pub fn save(&self, file: &mut File) {
+        for i in 0..self.pre { write!(file, "{}", self.text[i]).unwrap(); }
+        for i in self.post+1..self.text.len() { write!(file, "{}", self.text[i]).unwrap(); }
+        write!(file, "\n");
     }
 }    

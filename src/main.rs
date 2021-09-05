@@ -16,9 +16,13 @@ fn main() {
 */
 
 fn main() {
+
+    let fname = "/home/manan/Projects/rust-editor/files/test1.txt";
+
     let mut ed = editor::Editor {
         term: &mut stdout(),
-        subed: editor::subeditor::SubEditor::open("/home/manan/Projects/rust-editor/files/test1.txt")
+        subed: editor::subeditor::SubEditor::open(fname),
+        fname: fname,
     };
 
     ed.init();

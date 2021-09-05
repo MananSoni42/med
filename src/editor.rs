@@ -13,6 +13,7 @@ pub mod subeditor;
 pub struct Editor<'a> {
     pub term: &'a mut Write,
     pub subed: subeditor::SubEditor,
+    pub fname: &'a str
 }
 
 impl Editor<'_> {
@@ -91,6 +92,10 @@ impl Editor<'_> {
                     Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Esc })) => {
                         break;
                     }
+                    Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::End })) => {
+                        self.subed.save(self.fname);
+                        break;
+                    }
                     Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Left })) => {
                         if self.subed.move_left() {
                             self.change_loc();
@@ -129,7 +134,8 @@ impl Editor<'_> {
                         self.term.execute(style::Print(self.subed.show_curr_post_line()));
                         self.term.execute(cursor::MoveToColumn(0));
                     } 
-                    Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Backspace })) => {
+                    Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Backspace })) | 
+                    Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Delete })) => {
                         if self.subed.backspace() {
                             self.term.execute(terminal::Clear(terminal::ClearType::UntilNewLine));
                             self.term.execute(cursor::MoveLeft(1));
