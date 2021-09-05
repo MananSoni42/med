@@ -7,5 +7,4 @@ edition = "2018"
 
 [dependencies]
 crossterm = "0.20"
-deepmesa = "0.9.0"
 

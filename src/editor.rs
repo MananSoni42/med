@@ -11,7 +11,7 @@ use crossterm::{
 pub mod subeditor;
 
 pub struct Editor<'a> {
-    pub term: &'a mut Write,
+    pub term: &'a mut dyn Write,
     pub subed: subeditor::SubEditor,
     pub fname: &'a str
 }
@@ -35,7 +35,7 @@ impl Editor<'_> {
         let SEP: StyledContent<&str> = "|".white();             
         self.term.execute(style::Print(
             format!("{} {:^cwidth$} {}", 
-                    SEP, format!("({},{})", self.subed.curr_line(), self.subed.cursor()+1 as usize), 
+                    SEP, format!("({},{})", self.subed.curr_line() + 1 as usize, self.subed.cursor() + 1 as usize), 
                     SEP, cwidth=CURSOR_WIDTH)
             )
         );
@@ -55,7 +55,7 @@ impl Editor<'_> {
         self.term.execute(cursor::MoveTo(0,0));
         self.term.execute(style::Print(
             format!("{} {:^cwidth$} {} {:^twidth$} {} {:^cmwidth$} {}", 
-                    SEP, format!("({},{})", self.subed.curr_line(), self.subed.cursor()+1 as usize), 
+                    SEP, format!("({},{})", self.subed.curr_line()+1 as usize, self.subed.cursor()+1 as usize), 
                     SEP, "--- Med v0.1 ---", SEP, "N", SEP,
                     twidth=TITLE_WIDTH, cwidth=CURSOR_WIDTH, cmwidth=COMMAND_WIDTH)
                 )
@@ -124,18 +124,7 @@ impl Editor<'_> {
                     }
                     Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Enter })) => {
                         self.subed.insert_newline();
-                        /*
-                        self.subed.move_up();
-                        self.term.execute(terminal::Clear(terminal::ClearType::UntilNewLine));
-                        self.term.execute(cursor::MoveToColumn(0));
-                        self.term.execute(style::Print(self.subed.show_curr_post_line()));
-
-                        self.term.execute(cursor::MoveToNextLine(1));
-                        self.subed.move_down();
-                        self.term.execute(style::Print(self.subed.show_curr_post_line()));
-                        self.term.execute(cursor::MoveToColumn(0));
-                        */
-                        self.term.execute(terminal::Clear(terminal::ClearType::CurrentLine));
+                        self.term.execute(terminal::Clear(terminal::ClearType::FromCursorDown));
                         self.term.execute(cursor::MoveToNextLine(1));
                         self.show_content();
                     } 
