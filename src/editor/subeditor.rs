@@ -59,6 +59,13 @@ impl SubEditor {
         self.lines.iter()
     }
 
+    pub fn linelen(&self) -> usize {
+        let lineref = self.curr_line.clone().unwrap();
+        let line = self.lines.node(&lineref).unwrap();
+        
+        line.len()
+    }
+
     pub fn cursor(&self) -> usize {
         let lineref = self.curr_line.clone().unwrap();
         let line = self.lines.node(&lineref).unwrap();
@@ -159,6 +166,32 @@ impl SubEditor {
         let lineref = self.curr_line.clone().unwrap();
         let line = self.lines.node_mut(&lineref).unwrap();
         line.backspace()
+    }
+
+    pub fn backspace_line(&mut self) -> bool {
+        let lineref = self.curr_line.clone().unwrap();
+        let line = self.lines.node_mut(&lineref).unwrap();    
+
+        if line.len() == 0 {
+            if self.move_down() {
+                let lineref = self.curr_line.clone().unwrap();
+                self.lines.pop_prev(&lineref).unwrap();           
+                
+                return false;
+
+            } else  if self.move_up() {
+                let lineref = self.curr_line.clone().unwrap();
+                self.lines.pop_next(&lineref).unwrap();   
+                self.curr_line_num -= 1;      
+                
+                return true;
+            }
+            else {
+                panic!("Anakin start panikin, no lines")
+            }
+        }
+
+        false
     }
 
     pub fn insert(&mut self, newchar: char) {

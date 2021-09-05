@@ -124,6 +124,7 @@ impl Editor<'_> {
                     }
                     Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Enter })) => {
                         self.subed.insert_newline();
+                        /*
                         self.subed.move_up();
                         self.term.execute(terminal::Clear(terminal::ClearType::UntilNewLine));
                         self.term.execute(cursor::MoveToColumn(0));
@@ -133,10 +134,21 @@ impl Editor<'_> {
                         self.subed.move_down();
                         self.term.execute(style::Print(self.subed.show_curr_post_line()));
                         self.term.execute(cursor::MoveToColumn(0));
+                        */
+                        self.term.execute(terminal::Clear(terminal::ClearType::CurrentLine));
+                        self.term.execute(cursor::MoveToNextLine(1));
+                        self.show_content();
                     } 
                     Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Backspace })) | 
                     Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Delete })) => {
-                        if self.subed.backspace() {
+                        if self.subed.linelen() == 0 {
+                            if self.subed.backspace_line() { self.term.execute(cursor::MoveToPreviousLine(1)); }
+                            self.term.execute(cursor::SavePosition);                
+                            self.term.execute(terminal::Clear(terminal::ClearType::FromCursorDown));
+                            self.show_content();
+                            self.term.execute(cursor::RestorePosition);                
+
+                        } else if self.subed.backspace() {
                             self.term.execute(terminal::Clear(terminal::ClearType::UntilNewLine));
                             self.term.execute(cursor::MoveLeft(1));
                             self.term.execute(cursor::SavePosition);                
