@@ -37,10 +37,14 @@ impl Editor<'_> {
     pub fn disp_name(&self) -> String {
         let filename = Path::new(self.fname).file_name().unwrap().to_str().unwrap();
         let fnamelen = filename.len();
-        let start = fnamelen + 3 - FNAME_WIDTH/2;
+        let start = fnamelen + 2 - FNAME_WIDTH/2;
 
-        if fnamelen < FNAME_WIDTH { filename.to_string() } 
-        else { format!("{}...{}", &filename[0..FNAME_WIDTH/2], &filename[start..fnamelen]) }
+        if fnamelen + 1 < FNAME_WIDTH { 
+            format!("{}{}", filename, if self.subed.is_changed() {"*"} else { " " }) 
+        } else { format!( "{}...{}{}", 
+                        &filename[0..FNAME_WIDTH/2], 
+                        &filename[start..fnamelen], 
+                        if self.subed.is_changed() {"*"} else { " " }) }
     }
 
     pub fn show_header(&mut self) {
@@ -111,24 +115,36 @@ impl Editor<'_> {
                         self.subed.save(self.fname);
                         break;
                     }
-                    Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Left })) => {
-                        if self.subed.move_left() {
+                    Ok(Event::Key(KeyEvent{ modifiers: keymod, code: KeyCode::Left })) => {
+                        if keymod == KeyModifiers::CONTROL {
+                            self.subed.move_start();
+                            self.term.execute(cursor::MoveToColumn(COL_OFFSET as u16 + 1));
+                        } else if self.subed.move_left() {
                             self.term.execute(cursor::MoveLeft(1));
                         }
                     }
-                    Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Right })) => {
-                        if self.subed.move_right() {
+                    Ok(Event::Key(KeyEvent{ modifiers: keymod, code: KeyCode::Right })) => {
+                        if keymod == KeyModifiers::CONTROL {
+                            self.subed.move_end();
+                            self.term.execute(cursor::MoveToColumn(COL_OFFSET as u16 + self.subed.linelen() as u16 + 1));
+                        } else if self.subed.move_right() {
                             self.term.execute(cursor::MoveRight(1));
                         }
                     }
-                    Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Up })) => {
-                        if self.subed.move_up() {
+                    Ok(Event::Key(KeyEvent{ modifiers: keymod, code: KeyCode::Up })) => {
+                        if keymod == KeyModifiers::CONTROL {
+                            self.subed.move_first();
+                            self.term.execute(cursor::MoveTo(COL_OFFSET as u16, ROW_OFFSET as u16));
+                        } else if self.subed.move_up() {
                             self.term.execute(cursor::MoveToPreviousLine(1));
                             self.term.execute(cursor::MoveToColumn((COL_OFFSET + self.subed.cursor() + 1) as u16));                            
                         }
                     }
-                    Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Down })) => {
-                        if self.subed.move_down() {
+                    Ok(Event::Key(KeyEvent{ modifiers: keymod, code: KeyCode::Down })) => {
+                        if keymod == KeyModifiers::CONTROL {
+                            self.subed.move_last();
+                            self.term.execute(cursor::MoveTo(COL_OFFSET as u16, ROW_OFFSET as u16 + self.subed.num_lines() as u16 - 1));
+                        } else if self.subed.move_down() {
                             self.term.execute(cursor::MoveToNextLine(1));
                             self.term.execute(cursor::MoveToColumn((COL_OFFSET + self.subed.cursor() + 1) as u16));                            
                         }
@@ -209,7 +225,6 @@ impl Editor<'_> {
                         // nothing for mouse events, F keys
                     }
                 }
-                self.show_header();
         } else {
                 // Timeout expired, no event for 1s
             }

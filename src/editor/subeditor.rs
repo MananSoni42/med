@@ -17,7 +17,8 @@ where P: AsRef<Path>, {
 #[derive(Debug)]
 pub struct SubEditor {
     prelines: Vec<Line>,
-    postlines: Vec<Line>
+    postlines: Vec<Line>,
+    changed: bool,
 }
 
 impl SubEditor {
@@ -25,7 +26,8 @@ impl SubEditor {
 
         let mut subed = SubEditor {
             prelines: Vec::new(),
-            postlines: Vec::new()
+            postlines: Vec::new(),
+            changed: false
         };
 
         let path = Path::new(path);
@@ -55,6 +57,14 @@ impl SubEditor {
 
     pub fn curr_line_num(&self) -> usize {
         self.prelines.len() - 1 as usize
+    }
+
+    pub fn is_changed(&self) -> bool {
+        self.changed
+    }
+
+    pub fn num_lines(&self) -> usize {
+        self.prelines.len() + self.postlines.len()
     }
 
     pub fn curr_line(&self) -> String {
