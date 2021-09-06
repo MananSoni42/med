@@ -21,7 +21,7 @@ Med is a simple terminal-based text editor written with the goal of understandin
 - [ ] Highlighting (?)
 - [ ] Error handling (!!)
 - [ ] Switch to better data structures (!!)
-    - [ ] Split buffer for inter line
+    - [x] Split buffer for inter line
     - [ ] Piece table for intra line
 - [ ] Commands (!)
 - [ ] Create configs
