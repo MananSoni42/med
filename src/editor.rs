@@ -35,7 +35,7 @@ impl Editor<'_> {
         let SEP: StyledContent<&str> = "|".white();             
         self.term.execute(style::Print(
             format!("{} {:^cwidth$} {}", 
-                    SEP, format!("({},{})", self.subed.curr_line() + 1 as usize, self.subed.cursor() + 1 as usize), 
+                    SEP, format!("({},{})", self.subed.curr_line_num() + 1 as usize, self.subed.cursor() + 1 as usize), 
                     SEP, cwidth=CURSOR_WIDTH)
             )
         );
@@ -55,7 +55,7 @@ impl Editor<'_> {
         self.term.execute(cursor::MoveTo(0,0));
         self.term.execute(style::Print(
             format!("{} {:^cwidth$} {} {:^twidth$} {} {:^cmwidth$} {}", 
-                    SEP, format!("({},{})", self.subed.curr_line()+1 as usize, self.subed.cursor()+1 as usize), 
+                    SEP, format!("({},{})", self.subed.curr_line_num()+1 as usize, self.subed.cursor()+1 as usize), 
                     SEP, "--- Med v0.1 ---", SEP, "N", SEP,
                     twidth=TITLE_WIDTH, cwidth=CURSOR_WIDTH, cmwidth=COMMAND_WIDTH)
                 )
@@ -70,6 +70,15 @@ impl Editor<'_> {
         self.term.execute(cursor::SavePosition);        
         self.term.execute(cursor::MoveTo(0,2));
         for line in self.subed.get_lines() {
+            print!("{}", line.show());
+            self.term.execute(cursor::MoveToNextLine(1));
+        }
+        self.term.execute(cursor::RestorePosition);                
+    }
+
+    pub fn show_post_content(&mut self) {
+        self.term.execute(cursor::SavePosition);        
+        for line in self.subed.get_post_lines().iter().rev() {
             print!("{}", line.show());
             self.term.execute(cursor::MoveToNextLine(1));
         }
@@ -123,19 +132,25 @@ impl Editor<'_> {
                         }
                     }
                     Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Enter })) => {
-                        self.subed.insert_newline();
+                        let prevline = self.subed.insert_newline();
+                        self.term.execute(terminal::Clear(terminal::ClearType::CurrentLine));
                         self.term.execute(terminal::Clear(terminal::ClearType::FromCursorDown));
+                        self.term.execute(cursor::MoveToColumn(0));
+                        print!("{}", prevline);
                         self.term.execute(cursor::MoveToNextLine(1));
-                        self.show_content();
+                        print!("{}", self.subed.curr_line());
+                        self.term.execute(cursor::MoveToNextLine(1));
+                        self.show_post_content();
+                        self.term.execute(cursor::MoveToPreviousLine(1));
                     } 
                     Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Backspace })) => {
                         if self.subed.linelen() == 0 {
                             if self.subed.backspace_line() { self.term.execute(cursor::MoveToPreviousLine(1)); }
-                            self.term.execute(cursor::SavePosition);  
                             self.term.execute(terminal::Clear(terminal::ClearType::FromCursorDown));
-                            self.show_content();
-                            self.term.execute(cursor::RestorePosition);                
-
+                            print!("{}", self.subed.curr_line());
+                            self.term.execute(cursor::MoveToNextLine(1));
+                            self.show_post_content();
+                            self.term.execute(cursor::MoveToPreviousLine(1));
                         } else if self.subed.backspace() {
                             self.term.execute(cursor::MoveLeft(1));
                             self.term.execute(terminal::Clear(terminal::ClearType::UntilNewLine));
@@ -147,11 +162,11 @@ impl Editor<'_> {
                     Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Delete })) => {
                         if self.subed.linelen() == 0 {
                             if self.subed.backspace_line() { self.term.execute(cursor::MoveToPreviousLine(1)); }
-                            self.term.execute(cursor::SavePosition);  
                             self.term.execute(terminal::Clear(terminal::ClearType::FromCursorDown));
-                            self.show_content();
-                            self.term.execute(cursor::RestorePosition);                
-
+                            print!("{}", self.subed.curr_line());
+                            self.term.execute(cursor::MoveToNextLine(1));
+                            self.show_post_content();
+                            self.term.execute(cursor::MoveToPreviousLine(1));
                         } else if self.subed.delete() {
                             //self.term.execute(cursor::MoveLeft(1));
                             self.term.execute(terminal::Clear(terminal::ClearType::UntilNewLine));
@@ -176,7 +191,7 @@ impl Editor<'_> {
                         // error handling
                     }
                     _ => {
-                        // nothing for mouse events
+                        // nothing for mouse events, F keys
                     }
                 }
         } else {
