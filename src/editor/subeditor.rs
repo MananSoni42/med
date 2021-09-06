@@ -169,20 +169,21 @@ impl SubEditor {
         return false;
     }
 
-    pub fn backspace_line(&mut self) -> bool {
-        if self.linelen() == 0 && self.prelines.len() + self.postlines.len() > 1 {
-            if self.postlines.len() > 0 {
-                if self.prelines.len() > 0 { self.prelines.pop(); }
-                self.prelines.push(self.postlines.pop().unwrap());
+    pub fn delete_empty_line(&mut self) -> bool {
+        if self.linelen() == 0 && self.num_lines() > 1 {
+            self.prelines.pop();
+            if self.prelines.len() == 0 { 
+                self.prelines.push(self.postlines.pop().unwrap()); 
+                let curr_line = self.curr_line_num();
+                self.prelines[curr_line].move_start();
                 return false;
-            } else if self.prelines.len() > 1 {
-                if self.postlines.len() > 0 { self.postlines.pop(); }
-                self.postlines.push(self.prelines.pop().unwrap());
+            } else { 
+                let curr_line = self.curr_line_num();
+                self.prelines[curr_line].move_start();        
                 return true;
             }
-        }
-
-        false
+        } 
+        return false;
     }
 
     pub fn insert(&mut self, newchar: char) {

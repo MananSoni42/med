@@ -173,14 +173,18 @@ impl Editor<'_> {
                     } 
                     Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Backspace })) => {
                         if self.subed.linelen() == 0 {
-                            if self.subed.backspace_line() { self.term.execute(cursor::MoveToPreviousLine(1)); }
+                            if self.subed.delete_empty_line() { 
+                                self.term.execute(cursor::MoveToPreviousLine(1)); 
+                                self.term.execute(style::SetForegroundColor(style::Color::White));
+                                print!("{:^lwidth$} ", self.subed.curr_line_num()+1, lwidth=COL_OFFSET-1);
+                                self.term.execute(style::ResetColor);        
+                            }
                             self.term.execute(terminal::Clear(terminal::ClearType::FromCursorDown));
                             print!("{}", self.subed.curr_line());
                             self.term.execute(cursor::MoveToNextLine(1));
-                            //self.term.execute(cursor::MoveRight(COL_OFFSET as u16));
                             self.show_post_content();
                             self.term.execute(cursor::MoveToPreviousLine(1));
-                            self.term.execute(cursor::MoveRight(COL_OFFSET as u16));
+                            self.term.execute(cursor::MoveToColumn(COL_OFFSET as u16 + 1));
                         } else if self.subed.backspace() {
                             self.term.execute(cursor::MoveLeft(1));
                             self.term.execute(terminal::Clear(terminal::ClearType::UntilNewLine));
@@ -191,14 +195,19 @@ impl Editor<'_> {
                     } 
                     Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Delete })) => {
                         if self.subed.linelen() == 0 {
-                            if self.subed.backspace_line() { self.term.execute(cursor::MoveToPreviousLine(1)); }
+                            if self.subed.delete_empty_line() { 
+                                self.term.execute(cursor::MoveToPreviousLine(1)); 
+                                self.term.execute(style::SetForegroundColor(style::Color::White));
+                                print!("{:^lwidth$} ", self.subed.curr_line_num()+1, lwidth=COL_OFFSET-1);
+                                self.term.execute(style::ResetColor);        
+                            }
                             self.term.execute(terminal::Clear(terminal::ClearType::FromCursorDown));
                             print!("{}", self.subed.curr_line());
                             self.term.execute(cursor::MoveToNextLine(1));
                             //self.term.execute(cursor::MoveRight(COL_OFFSET as u16));
                             self.show_post_content();
                             self.term.execute(cursor::MoveToPreviousLine(1));
-                            self.term.execute(cursor::MoveRight(COL_OFFSET as u16));
+                            self.term.execute(cursor::MoveToColumn(COL_OFFSET as u16 + 1));
                         } else if self.subed.delete() {
                             //self.term.execute(cursor::MoveLeft(1));
                             self.term.execute(terminal::Clear(terminal::ClearType::UntilNewLine));
