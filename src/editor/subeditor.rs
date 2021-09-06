@@ -82,8 +82,16 @@ impl SubEditor {
     }
 
     pub fn move_down(&mut self) -> bool {
+        let old_cursor = self.cursor();
         if self.postlines.len() > 0 {
             self.prelines.push(self.postlines.pop().unwrap());
+            if self.linelen() < old_cursor { self.move_end(); }
+            else if self.cursor() < old_cursor {
+                while (self.cursor() < old_cursor) { self.move_right(); }
+            } 
+            else if self.cursor() > old_cursor {
+                while (self.cursor() > old_cursor) { self.move_left(); }
+            } 
             true
         } else {
             false
@@ -91,8 +99,16 @@ impl SubEditor {
     }
  
     pub fn move_up(&mut self) -> bool {
+        let old_cursor = self.cursor();
         if self.prelines.len() > 1 {
             self.postlines.push(self.prelines.pop().unwrap());
+            if self.linelen() < old_cursor { self.move_end(); }
+            else if self.cursor() < old_cursor {
+                while (self.cursor() < old_cursor) { self.move_right(); }
+            } 
+            else if self.cursor() > old_cursor {
+                while (self.cursor() > old_cursor) { self.move_left(); }
+            } 
             true
         } else {
             false
@@ -110,13 +126,13 @@ impl SubEditor {
     }
 
     pub fn move_first(&mut self) {
-        while self.move_up() { }
+        while self.prelines.len() > 1 { self.postlines.push(self.prelines.pop().unwrap()); }
         let curr_line = self.curr_line();
         self.prelines[curr_line].move_start();
     }
 
     pub fn move_last(&mut self) {
-        while self.move_down() { }
+        while self.postlines.len() > 0 { self.prelines.push(self.postlines.pop().unwrap()); }
         let curr_line = self.curr_line();
         self.prelines[curr_line].move_start();
     }
@@ -135,17 +151,14 @@ impl SubEditor {
     }
 
     pub fn backspace_line(&mut self) -> bool {
-        let curr_line = self.curr_line();
-        if self.prelines[curr_line].len() == 0 {
-            if self.move_down() {
-                self.move_up();
-                self.prelines.pop();                
-                self.move_down();
+        if self.linelen() == 0 && self.prelines.len() + self.postlines.len() > 1 {
+            if self.postlines.len() > 0 {
+                if self.prelines.len() > 0 { self.prelines.pop(); }
+                self.prelines.push(self.postlines.pop().unwrap());
                 return false;
-            } else if self.move_up() {
-                self.move_down();
-                self.postlines.pop();
-                self.move_up();
+            } else if self.prelines.len() > 1 {
+                if self.postlines.len() > 0 { self.postlines.pop(); }
+                self.postlines.push(self.prelines.pop().unwrap());
                 return true;
             }
             else {
