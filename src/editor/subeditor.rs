@@ -16,8 +16,8 @@ where P: AsRef<Path>, {
 
 #[derive(Debug)]
 pub struct SubEditor {
-    pub prelines: Vec<Line>,
-    pub postlines: Vec<Line>
+    prelines: Vec<Line>,
+    postlines: Vec<Line>
 }
 
 impl SubEditor {
@@ -124,6 +124,14 @@ impl SubEditor {
     pub fn backspace(&mut self) -> bool {
         let curr_line = self.curr_line();
         self.prelines[curr_line].backspace()
+    }
+
+    pub fn delete(&mut self) -> bool {
+        if self.move_right() {
+            let curr_line = self.curr_line();
+            return self.prelines[curr_line].backspace();
+        }
+        return false;
     }
 
     pub fn backspace_line(&mut self) -> bool {
