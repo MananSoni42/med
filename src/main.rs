@@ -30,6 +30,7 @@ fn main() {
     ed.start();
     
     ed.exit();
+    println!("{}", ed.disp_name())
 }
 
 
