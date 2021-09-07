@@ -18,7 +18,6 @@ pub struct Editor<'a> {
 }
 
 static FNAME_WIDTH: usize = 20; // even and more than 3
-//static COMMAND_WIDTH: usize = 3;
 static ROW_OFFSET: usize = 2;
 static COL_OFFSET: usize = 4 ; // even
 
@@ -47,11 +46,10 @@ impl Editor<'_> {
         let start = fnamelen + 2 - FNAME_WIDTH/2;
 
         if fnamelen + 1 < FNAME_WIDTH { 
-            Ok(format!("{}{}", filename, if self.subed.is_changed() {"*"} else { " " }) )
-        } else { Ok(format!( "{}...{}{}", 
-                        &filename[0..FNAME_WIDTH/2], 
-                        &filename[start..fnamelen], 
-                        if self.subed.is_changed() {"*"} else { " " })) }
+            Ok(format!("{}", filename) )
+        } else { 
+            Ok(format!( "{}...{}", &filename[0..FNAME_WIDTH/2], &filename[start..fnamelen])) 
+        }
     }
 
     pub fn show_header(&mut self) -> Result<()> {
@@ -61,7 +59,7 @@ impl Editor<'_> {
         self.term.execute(cursor::MoveTo(0,0))?;
         
         let (cols,_) = terminal::size()?;
-        let title_width: usize = cols as usize - FNAME_WIDTH - 8;
+        let title_width: usize = cols as usize - FNAME_WIDTH - 3;
 
         self.term.execute(cursor::MoveTo(0,0))?;
         print!( "{:^twidth$} | {:^fwidth$}", 
@@ -121,13 +119,6 @@ impl Editor<'_> {
             if poll(Duration::from_millis(1_000))? {
                 // It's guaranteed that read() wont block if `poll` returns `Ok(true)`
                 match read() {
-                    Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Esc })) => {
-                        break;
-                    }
-                    Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::End })) => {
-                        self.subed.save(self.fname)?;
-                        break;
-                    }
                     Ok(Event::Key(KeyEvent{ modifiers: keymod, code: KeyCode::Left })) => {
                         if keymod == KeyModifiers::CONTROL {
                             self.subed.move_start();
@@ -237,22 +228,37 @@ impl Editor<'_> {
                             subeditor::DEL::No => { }
                         }
                     } 
-                    Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Char(keych) })) => {
-                        self.subed.insert(keych);
-                        self.term.execute(terminal::Clear(terminal::ClearType::UntilNewLine))?;
-                        print!("{}", keych);
-                        self.term.execute(cursor::SavePosition)?;                
-                        print!("{}", self.subed.show_curr_post_line());
-                        self.term.execute(cursor::RestorePosition)?;                
-                }
+                    Ok(Event::Key(KeyEvent{ modifiers: keymod, code: KeyCode::Char(keych) })) => {
+                        if keymod == KeyModifiers::CONTROL && (keych == 'q' || keych == 'Q') {
+                            break;
+                        } else if keymod == KeyModifiers::CONTROL && (keych == 's' || keych == 'S') {
+                            self.subed.save(self.fname)?;
+                            break;
+                        } else {
+                            self.subed.insert(keych);
+                            self.term.execute(terminal::Clear(terminal::ClearType::UntilNewLine))?;
+                            print!("{}", keych);
+                            self.term.execute(cursor::SavePosition)?;                
+                            print!("{}", self.subed.show_curr_post_line());
+                            self.term.execute(cursor::RestorePosition)?;
+                        }
+                    }
+                    Ok(Event::Key(KeyEvent{ modifiers: keymod, code: KeyCode::F(5) })) => {
+                        self.term.execute(terminal::Clear(terminal::ClearType::All))?;
+                        self.subed.move_first();
+                        self.show_content()?;
+                        self.show_header()?;
+                        self.term.execute(cursor::MoveTo(COL_OFFSET as u16, ROW_OFFSET as u16))?;
+                    }
                     Ok(Event::Resize(_,_)) => {
                         self.show_content()?;
+                        self.show_header()?;                
                     }
                     Err(_) => {
                         // error handling
                     }
                     _ => {
-                        // nothing for mouse events, F keys
+                        // nothing for mouse events, other Fn keys
                     }
                 }
         } else {
