@@ -18,7 +18,7 @@ pub struct Editor<'a> {
 }
 
 static FNAME_WIDTH: usize = 20; // even and more than 3
-static COMMAND_WIDTH: usize = 3;
+//static COMMAND_WIDTH: usize = 3;
 static ROW_OFFSET: usize = 2;
 static COL_OFFSET: usize = 4 ; // even
 
@@ -61,12 +61,12 @@ impl Editor<'_> {
         self.term.execute(cursor::MoveTo(0,0))?;
         
         let (cols,_) = terminal::size()?;
-        let title_width: usize = cols as usize - COMMAND_WIDTH - FNAME_WIDTH - 8;
+        let title_width: usize = cols as usize - FNAME_WIDTH - 8;
 
         self.term.execute(cursor::MoveTo(0,0))?;
-        print!(" {:^fwidth$} | {:^twidth$} | {:^cmwidth$} ", 
-                self.disp_name()?, " Med v0.1 ", "N",
-                twidth=title_width, fwidth=FNAME_WIDTH, cmwidth=COMMAND_WIDTH
+        print!( "{:^twidth$} | {:^fwidth$}", 
+                " Med v0.1 ", self.disp_name()?,
+                twidth=title_width, fwidth=FNAME_WIDTH
         );
         self.term.execute(cursor::MoveToNextLine(1))?;
         print!("{}", vec!['¯'; cols as usize].iter().collect::<String>());
@@ -185,46 +185,56 @@ impl Editor<'_> {
                         self.term.execute(cursor::MoveToColumn((COL_OFFSET + self.subed.cursor() + 1) as u16))?;                            
                     } 
                     Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Backspace })) => {
-                        if self.subed.linelen() == 0 {
-                            if self.subed.delete_empty_line() { 
+                        match self.subed.backspace() {
+                            subeditor::DEL::NewLine(newcursor) => {
+                                self.term.execute(terminal::Clear(terminal::ClearType::CurrentLine))?;
+                                self.term.execute(terminal::Clear(terminal::ClearType::FromCursorDown))?;
+                                
                                 self.term.execute(cursor::MoveToPreviousLine(1))?; 
                                 self.term.execute(style::SetForegroundColor(style::Color::White))?;
                                 print!("{:^lwidth$} ", self.subed.curr_line_num()+1, lwidth=COL_OFFSET-1);
                                 self.term.execute(style::ResetColor)?;        
+
+                                print!("{}", self.subed.curr_line());
+                                self.term.execute(cursor::MoveToNextLine(1))?;
+                                self.show_post_content()?;
+                                self.term.execute(cursor::MoveToPreviousLine(1))?;
+                                self.term.execute(cursor::MoveToColumn(COL_OFFSET as u16 + newcursor as u16 + 1))?;
+                            } 
+                            subeditor::DEL::Yes => {
+                                self.term.execute(cursor::MoveLeft(1))?;
+                                self.term.execute(terminal::Clear(terminal::ClearType::UntilNewLine))?;
+                                self.term.execute(cursor::SavePosition)?;                
+                                print!("{}", self.subed.show_curr_post_line());
+                                self.term.execute(cursor::RestorePosition)?;                
                             }
-                            self.term.execute(terminal::Clear(terminal::ClearType::FromCursorDown))?;
-                            print!("{}", self.subed.curr_line());
-                            self.term.execute(cursor::MoveToNextLine(1))?;
-                            self.show_post_content()?;
-                            self.term.execute(cursor::MoveToPreviousLine(1))?;
-                            self.term.execute(cursor::MoveToColumn(COL_OFFSET as u16 + 1))?;
-                        } else if self.subed.backspace() {
-                            self.term.execute(cursor::MoveLeft(1))?;
-                            self.term.execute(terminal::Clear(terminal::ClearType::UntilNewLine))?;
-                            self.term.execute(cursor::SavePosition)?;                
-                            print!("{}", self.subed.show_curr_post_line());
-                            self.term.execute(cursor::RestorePosition)?;                
+                            subeditor::DEL::No => { }
                         }
                     } 
                     Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Delete })) => {
-                        if self.subed.linelen() == 0 {
-                            if self.subed.delete_empty_line() { 
-                                self.term.execute(cursor::MoveToPreviousLine(1))?; 
+                        match self.subed.delete() {
+                            subeditor::DEL::NewLine(newcursor) => {
+                                self.term.execute(terminal::Clear(terminal::ClearType::CurrentLine))?;
+                                self.term.execute(terminal::Clear(terminal::ClearType::FromCursorDown))?;
+                                self.term.execute(cursor::MoveToColumn(0))?;
+                                
                                 self.term.execute(style::SetForegroundColor(style::Color::White))?;
                                 print!("{:^lwidth$} ", self.subed.curr_line_num()+1, lwidth=COL_OFFSET-1);
                                 self.term.execute(style::ResetColor)?;        
+                                print!("{}", self.subed.curr_line());
+
+                                self.term.execute(cursor::MoveToNextLine(1))?;
+                                self.show_post_content()?;
+                                self.term.execute(cursor::MoveToPreviousLine(1))?;
+                                self.term.execute(cursor::MoveToColumn(COL_OFFSET as u16 + newcursor as u16 + 1))?;
+                            } 
+                            subeditor::DEL::Yes => {
+                                self.term.execute(terminal::Clear(terminal::ClearType::UntilNewLine))?;
+                                self.term.execute(cursor::SavePosition)?;                
+                                print!("{}", self.subed.show_curr_post_line());
+                                self.term.execute(cursor::RestorePosition)?;
                             }
-                            self.term.execute(terminal::Clear(terminal::ClearType::FromCursorDown))?;
-                            print!("{}", self.subed.curr_line());
-                            self.term.execute(cursor::MoveToNextLine(1))?;
-                            self.show_post_content()?;
-                            self.term.execute(cursor::MoveToPreviousLine(1))?;
-                            self.term.execute(cursor::MoveToColumn(COL_OFFSET as u16 + 1))?;
-                        } else if self.subed.delete() {
-                            self.term.execute(terminal::Clear(terminal::ClearType::UntilNewLine))?;
-                            self.term.execute(cursor::SavePosition)?;                
-                            print!("{}", self.subed.show_curr_post_line());
-                            self.term.execute(cursor::RestorePosition)?;                
+                            subeditor::DEL::No => { }
                         }
                     } 
                     Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Char(keych) })) => {

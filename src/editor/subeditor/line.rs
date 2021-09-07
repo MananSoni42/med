@@ -106,6 +106,13 @@ impl Line {
         } return false;
     }
 
+    pub fn delete(&mut self) -> bool {
+        if self.post + 1 < self.text.len() {
+            self.post += 1;
+            return true;
+        } return false;
+    }
+
     pub fn move_l(&mut self) -> bool {
         if self.pre > 0 {
             self.pre -= 1;

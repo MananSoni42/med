@@ -6,11 +6,17 @@ mod line;
 use line::Line;
 
 // The output is wrapped in a Result to allow matching on errors
-// Returns an Iterator to the Reader of the lines of the file.
+// Returns an Iteratfalseor to the Reader of the lines of the file.
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
 where P: AsRef<Path>, {
     let file = File::open(filename)?;
     Ok(io::BufReader::new(file).lines())
+}
+
+pub enum DEL {
+    Yes,
+    No,
+    NewLine(usize)
 }
 
 #[derive(Debug)]
@@ -155,20 +161,42 @@ impl SubEditor {
         self.prelines[curr_line].move_start();
     }
 
-    pub fn backspace(&mut self) -> bool {
+    pub fn backspace(&mut self) -> DEL {
         let curr_line = self.curr_line_num();
-        self.prelines[curr_line].backspace()
-    }
-
-    pub fn delete(&mut self) -> bool {
-        if self.move_right() {
+        if self.prelines[curr_line].backspace() {
+            DEL::Yes
+        } else if self.prelines.len() > 1 {
+            let nline = self.prelines[curr_line].show();
+            self.prelines.pop();
             let curr_line = self.curr_line_num();
-            return self.prelines[curr_line].backspace();
+            self.prelines[curr_line].move_end();
+            let linelen = self.linelen();
+            for ch in nline.chars() { self.prelines[curr_line].insert(ch) }
+            for _ in (linelen..self.linelen()) { self.move_left(); }
+            DEL::NewLine(linelen)
+        } else {
+            DEL::No
         }
-        return false;
     }
 
-    pub fn delete_empty_line(&mut self) -> bool {
+    pub fn delete(&mut self) -> DEL {
+        let curr_line = self.curr_line_num();
+        if self.prelines[curr_line].delete() {
+            DEL::Yes
+        } else if self.postlines.len() > 0 {
+            let nline = self.postlines.last().unwrap().show();
+            self.prelines[curr_line].move_end();
+            self.postlines.pop();
+            let linelen = self.linelen();
+            for ch in nline.chars() { self.prelines[curr_line].insert(ch) }
+            for _ in (linelen..self.linelen()) { self.move_left(); }
+            DEL::NewLine(linelen)
+        } else {
+            DEL::No
+        }
+    }
+
+    pub fn remove_empty_line(&mut self) -> bool {
         if self.linelen() == 0 && self.num_lines() > 1 {
             self.prelines.pop();
             if self.prelines.len() == 0 { 
@@ -219,11 +247,17 @@ impl SubEditor {
         post_line
     }
 
-    pub fn show(&self) { // use to see internal state of editor
-        println!("line: {}, cursor: {}", self.curr_line_num() + 1 as usize, self.cursor() + 1 as usize);
+    pub fn show(&self) -> String { // use to see internal state of editor
+        let mut ed_state = String::new();
+        ed_state.push_str(
+            &format!("line: {}, cursor: {}", self.curr_line_num() + 1 as usize, self.cursor() + 1 as usize)
+        );
+        ed_state.push('\n');
         for (i,cline) in self.get_lines().iter().enumerate() {
-            println!("{} | {}", i+1, cline.show());
+            ed_state.push_str(&format!("{} | {}", i+1, cline.show()));
         }
+
+        ed_state.to_string()
     }
 
     pub fn save(&self, path: &str) -> Result<(), std::io::Error> {
