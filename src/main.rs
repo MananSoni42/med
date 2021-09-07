@@ -1,36 +1,24 @@
 mod editor;
-use std::io::{self, BufRead, Write, stdout};
+use std::io::{self,stdout};
 
-/*
-fn main() {
-    let mut editor = subeditor::SubEditor::open("./files/test1.txt");
-    editor.move_first();
-    editor.move_down();
-    editor.move_right(); editor.move_right();
-    editor.insert_newline();
-    editor.insert('m');
-    editor.move_right(); editor.move_right();
-    editor.move_up(); editor.move_up();
-    editor.show();
-}
-*/
-
-fn main() {
+fn main() -> Result<(), io::Error>{
 
     let fname = "/home/manan/Projects/rust-editor/files/test1.txt";
 
     let mut ed = editor::Editor {
         term: &mut stdout(),
-        subed: editor::subeditor::SubEditor::open(fname),
+        subed: editor::subeditor::SubEditor::open(fname).unwrap(),
         fname: fname,
     };
 
-    ed.init();
+    if let Err(e) = ed.start() {
+        println!("Med stopped unexpectedly :( ({})", e);
+        ed.exit()?;
+        std::process::exit(1);
+    }
+    ed.exit()?;
     
-    ed.start();
-    
-    ed.exit();
-    println!("{}", ed.disp_name())
+    Ok(())
 }
 
 

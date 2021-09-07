@@ -19,7 +19,7 @@ Med is a simple terminal-based text editor written with the goal of understandin
 - [ ] Find / Replace (?)
 - [ ] Undo / Redo
 - [ ] Highlighting (?)
-- [ ] Error handling (!!)
+- [x] Error handling (!!)
 - [ ] Switch to better data structures (!!)
     - [x] Split buffer for inter line
     - [ ] Piece table for intra line

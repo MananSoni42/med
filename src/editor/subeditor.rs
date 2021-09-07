@@ -1,10 +1,9 @@
 use std::fs::File;
 use std::path::Path;
-use std::io::{self,BufRead,Write};
+use std::io::{self, BufRead};
 use std::iter::Iterator;
 mod line;
 use line::Line;
-
 
 // The output is wrapped in a Result to allow matching on errors
 // Returns an Iterator to the Reader of the lines of the file.
@@ -18,11 +17,12 @@ where P: AsRef<Path>, {
 pub struct SubEditor {
     prelines: Vec<Line>,
     postlines: Vec<Line>,
-    changed: bool,
+    changed: bool
 }
 
 impl SubEditor {
-    pub fn open(path: &str) -> SubEditor {
+
+    pub fn open(path: &str) -> Result<SubEditor, io::Error> {
 
         let mut subed = SubEditor {
             prelines: Vec::new(),
@@ -32,27 +32,26 @@ impl SubEditor {
 
         let path = Path::new(path);
 
-        let lines = match read_lines(&path) {
-            Err(why) => panic!("couldn't open {}: {}", path.display(), why),
-            Ok(lines) => lines,            
-        };
-
-        let mut first_line = true;
-        for line in lines {
-            match line {
-                Ok(content) => {
+        match read_lines(&path) {
+            Ok(lines) => { 
+                let mut first_line = true;
+                for line in lines {
                     if first_line {
-                        subed.prelines.push(Line::init_with_line(content)); 
+                        subed.prelines.push(Line::init_with_line(line?)); 
                         first_line = false;
                     } else {
-                        subed.postlines.push(Line::init_with_line(content));
+                        subed.postlines.push(Line::init_with_line(line?));
                     }
-                },
-                Err(_) => panic!("Could not read Line {} in file {}", subed.curr_line_num() + 1 as usize, path.display()),
+                }        
+            },
+            Err(_) => { 
+                std::fs::create_dir_all(path)?;
+                subed.prelines.push(Line::init());
             }
-        }
+        };
+
         subed.postlines.reverse();
-        return subed;
+        Ok(subed)
     }
 
     pub fn curr_line_num(&self) -> usize {
@@ -106,10 +105,10 @@ impl SubEditor {
             self.prelines.push(self.postlines.pop().unwrap());
             if self.linelen() < old_cursor { self.move_end(); }
             else if self.cursor() < old_cursor {
-                while (self.cursor() < old_cursor) { self.move_right(); }
+                while self.cursor() < old_cursor { self.move_right(); }
             } 
             else if self.cursor() > old_cursor {
-                while (self.cursor() > old_cursor) { self.move_left(); }
+                while self.cursor() > old_cursor { self.move_left(); }
             } 
             true
         } else {
@@ -123,10 +122,10 @@ impl SubEditor {
             self.postlines.push(self.prelines.pop().unwrap());
             if self.linelen() < old_cursor { self.move_end(); }
             else if self.cursor() < old_cursor {
-                while (self.cursor() < old_cursor) { self.move_right(); }
+                while self.cursor() < old_cursor { self.move_right(); }
             } 
             else if self.cursor() > old_cursor {
-                while (self.cursor() > old_cursor) { self.move_left(); }
+                while self.cursor() > old_cursor { self.move_left(); }
             } 
             true
         } else {
@@ -194,7 +193,7 @@ impl SubEditor {
     pub fn insert_newline(&mut self) -> String {
         let mut newline = String::new();
         let curr_line = self.curr_line_num();
-        let mut cline = &mut self.prelines[curr_line];
+        let cline = &mut self.prelines[curr_line];
         for i in cline.get_post()+1..cline.get_len() {
             newline.push(cline.get_text(i)); 
         }
@@ -220,20 +219,22 @@ impl SubEditor {
         post_line
     }
 
-    pub fn show(&self) {
+    pub fn show(&self) { // use to see internal state of editor
         println!("line: {}, cursor: {}", self.curr_line_num() + 1 as usize, self.cursor() + 1 as usize);
         for (i,cline) in self.get_lines().iter().enumerate() {
             println!("{} | {}", i+1, cline.show());
         }
     }
 
-    pub fn save(&self, path: &str) {
+    pub fn save(&self, path: &str) -> Result<(), std::io::Error> {
 
         let path = Path::new(path);
-        let mut file = File::create(path).unwrap();
+        let mut file = File::create(path)?;
 
         for cline in self.get_lines() {
-            cline.save(&mut file);
+            cline.save(&mut file)?;
         }
+
+        Ok(())
     }
 }    

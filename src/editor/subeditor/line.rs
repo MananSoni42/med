@@ -18,6 +18,22 @@ impl Line {
         }
     }
 
+    pub fn init_with_line(newline: String) -> Line {
+        let mut len = 32;
+        while len < newline.len() { len*= 2; }
+        let mut text: Vec<char> = vec!['\0'; len];
+        let offset = len - newline.len();
+        for (i,ch) in newline.chars().enumerate() {
+            text[offset+i] = ch;
+        }
+
+        Line {
+            pre: 0,
+            post: offset-1,
+            text: text
+        }
+    }
+
     pub fn len(&self) -> usize {
         self.pre + self.text.len() - 1 - self.post
     }
@@ -46,23 +62,7 @@ impl Line {
         self.text[i]
     }
 
-    pub fn init_with_line(newline: String) -> Line {
-        let mut len = 32;
-        while len < newline.len() { len*= 2; }
-        let mut text: Vec<char> = vec!['\0'; len];
-        let offset = len - newline.len();
-        for (i,ch) in newline.chars().enumerate() {
-            text[offset+i] = ch;
-        }
-
-        Line {
-            pre: 0,
-            post: offset-1,
-            text: text
-        }
-    }
-
-    pub fn adjust_buffer(&mut self) {
+    fn adjust_buffer(&mut self) {
         let free = self.post + 1 - self.pre;
         let cap = self.text.len();
 
@@ -146,9 +146,11 @@ impl Line {
         line
     }
 
-    pub fn save(&self, file: &mut File) {
-        for i in 0..self.pre { write!(file, "{}", self.text[i]).unwrap(); }
-        for i in self.post+1..self.text.len() { write!(file, "{}", self.text[i]).unwrap(); }
-        write!(file, "\n");
+    pub fn save(&self, file: &mut File) -> Result<(), std::io::Error> {
+        for i in 0..self.pre { write!(file, "{}", self.text[i])?; }
+        for i in self.post+1..self.text.len() { write!(file, "{}", self.text[i])?; }
+        write!(file, "\n")?;
+
+        Ok(())
     }
 }    
