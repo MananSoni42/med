@@ -9,6 +9,8 @@ fn main() -> Result<(), io::Error>{
         term: &mut stdout(),
         subed: editor::subeditor::SubEditor::open(fname).unwrap(),
         fname: fname,
+        xscroll: 0,
+        yscroll: 0,
     };
 
     if let Err(e) = ed.start() {

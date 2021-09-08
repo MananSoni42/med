@@ -166,7 +166,7 @@ impl SubEditor {
             self.prelines[curr_line].move_end();
             let linelen = self.linelen();
             for ch in nline.chars() { self.prelines[curr_line].insert(ch) }
-            for _ in (linelen..self.linelen()) { self.move_left(); }
+            for _ in linelen..self.linelen() { self.move_left(); }
             DEL::NewLine(linelen)
         } else {
             DEL::No
@@ -183,7 +183,7 @@ impl SubEditor {
             self.postlines.pop();
             let linelen = self.linelen();
             for ch in nline.chars() { self.prelines[curr_line].insert(ch) }
-            for _ in (linelen..self.linelen()) { self.move_left(); }
+            for _ in linelen..self.linelen() { self.move_left(); }
             DEL::NewLine(linelen)
         } else {
             DEL::No
