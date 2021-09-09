@@ -188,7 +188,10 @@ impl Editor<'_> {
         self.term.execute(cursor::SavePosition)?;        
         let cnum = self.subed.curr_line_num();
         let (cols, rows) = terminal::size()?;        
+        let (_,rcursor) = cursor::position()?;
+
         for (i,line) in self.subed.get_post_lines().iter().rev().enumerate() {
+            if rcursor + i as u16 + 1 == rows { break; }
             self.term.execute(terminal::Clear(terminal::ClearType::CurrentLine))?;
             let cline = line.show();
             let (xind, cline, longline) = self.get_line(&cline); 
@@ -205,7 +208,7 @@ impl Editor<'_> {
             self.term.execute(cursor::MoveToNextLine(1))?;
         }
         let (_,rcursor) = cursor::position()?;
-        if rcursor+1 == rows && self.subed.curr_line_num() + 1 != self.subed.num_lines(){
+        if rcursor+1 == rows && self.subed.curr_line_num() + 1 != self.subed.num_lines() {
             self.term.execute(style::SetForegroundColor(style::Color::White))?;
             print!(" {:^lwidth$} ", DARROW, lwidth=COL_OFFSET-2);
             self.term.execute(style::ResetColor)?;        
@@ -326,16 +329,24 @@ impl Editor<'_> {
                         let prevline = self.subed.insert_newline();
                         self.term.execute(terminal::Clear(terminal::ClearType::CurrentLine))?;
                         self.term.execute(terminal::Clear(terminal::ClearType::FromCursorDown))?;
-                        
-                        self.show_line(self.subed.curr_line_num(), &prevline);
-                        self.term.execute(cursor::MoveToNextLine(1))?;
 
-                        self.show_line(self.subed.curr_line_num()+1, &self.subed.curr_line());
-                        self.term.execute(cursor::MoveToNextLine(1))?;
-                        
-                        self.show_post_content()?;
-                        self.term.execute(cursor::MoveToPreviousLine(1))?;
-                        self.term.execute(cursor::MoveToColumn((COL_OFFSET + self.subed.cursor() + 1) as u16))?;                            
+                        let (_,cpos) = cursor::position()?;   
+                        let (_,rows) = terminal::size()?;
+
+                        self.show_line(self.subed.curr_line_num(), &prevline);
+
+                        if cpos + 1 < rows {
+                            self.term.execute(cursor::MoveToNextLine(1))?;
+
+                            self.show_line(self.subed.curr_line_num()+1, &self.subed.curr_line());
+
+                            if cpos + 2 < rows {
+                                self.term.execute(cursor::MoveToNextLine(1))?;    
+                                self.show_post_content()?;
+                                self.term.execute(cursor::MoveToPreviousLine(1))?;
+                            } 
+                        }
+                        self.term.execute(cursor::MoveToColumn((COL_OFFSET + self.subed.cursor() + 1) as u16))?;
                     } 
                     Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Backspace })) => {
                         match self.subed.backspace() {
@@ -399,6 +410,8 @@ impl Editor<'_> {
                     }
                     Ok(Event::Key(KeyEvent{ modifiers: keymod, code: KeyCode::F(5) })) => {
                         self.term.execute(terminal::Clear(terminal::ClearType::All))?;
+                        self.xscroll = 0;
+                        self.yscroll = 0;
                         self.subed.move_first();
                         self.show_content()?;
                         self.show_header()?;
