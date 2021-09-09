@@ -23,6 +23,10 @@ static FNAME_WIDTH: usize = 20; // even, more than 3
 static ROW_OFFSET: usize = 2;
 static COL_OFFSET: usize = 5 ; // odd, more than 3
 
+static LARROW: &str = "◂";
+static RARROW: &str = "▸";
+static DARROW: &str = "▾";
+
 impl Editor<'_> {
 
     pub fn init(&mut self) -> Result<()> {
@@ -75,6 +79,57 @@ impl Editor<'_> {
         Ok(())
     }
 
+    fn scroll_up(&mut self) -> Result<()> {
+        self.yscroll -= 1;
+        let (_,rows) = terminal::size().unwrap();
+        let rows = rows as usize;
+        self.term.execute(terminal::ScrollDown(1));
+        self.show_header();
+
+        self.term.execute(cursor::MoveTo(0,(rows-1) as u16));        
+        self.term.execute(terminal::Clear(terminal::ClearType::CurrentLine))?;
+        self.term.execute(style::SetForegroundColor(style::Color::White))?;
+        print!(" {:^lwidth$} ", DARROW, lwidth=COL_OFFSET-2);
+        self.term.execute(style::ResetColor)?;        
+        self.term.execute(cursor::MoveTo(0,ROW_OFFSET as u16));
+        Ok(())
+    }
+
+    fn scroll_down(&mut self) -> Result<()> {
+        self.yscroll += 1;
+        let (_,rows) = terminal::size().unwrap();
+        let rows = rows as usize;
+        self.term.execute(terminal::ScrollUp(1));
+        self.show_header();
+        self.term.execute(cursor::MoveToNextLine(1));
+        self.term.execute(terminal::Clear(terminal::ClearType::CurrentLine))?;
+        self.term.execute(style::SetForegroundColor(style::Color::White))?;
+        if self.subed.curr_line_num() + 1 != self.subed.num_lines() {
+            print!(" {:^lwidth$} ", DARROW, lwidth=COL_OFFSET-2);
+            self.term.execute(style::ResetColor)?;        
+        }
+        self.term.execute(cursor::MoveToPreviousLine(1));    
+        Ok(())
+    }
+
+    pub fn get_line<'a>(&self, cline: &'a str) -> (&'a str, &'a str, bool) {
+        let (cols,_) = terminal::size().unwrap();
+        let xind = if self.xscroll > 0 { LARROW } else { " " };
+
+        if self.xscroll < cline.len() {
+            if COL_OFFSET + cline.len() + 1 <= self.xscroll + cols as usize {
+                (xind, &cline[self.xscroll..], false)
+            } else if self.xscroll < cline.len() {
+                (xind, &cline[self.xscroll..self.xscroll + cols as usize - COL_OFFSET - 1], true)
+            } else {
+                (xind, "", false)
+            }
+        } else {
+            (xind, "", false)
+        }
+
+    }
+
     fn show_header(&mut self) -> Result<()> {
         self.term.execute(cursor::SavePosition)?;
         self.term.execute(style::SetForegroundColor(style::Color::White))?;
@@ -102,26 +157,27 @@ impl Editor<'_> {
         self.term.execute(cursor::SavePosition)?;        
         self.term.execute(cursor::MoveTo(0, ROW_OFFSET as u16))?;
         let (cols, rows) = terminal::size()?;        
-        for (i,line) in self.subed.get_lines().iter().skip(self.yscroll).take(rows as usize - ROW_OFFSET).enumerate() {
+        for (i,line) in self.subed.get_lines().iter().skip(self.yscroll).take(rows as usize - ROW_OFFSET - 1).enumerate() {
             self.term.execute(terminal::Clear(terminal::ClearType::CurrentLine))?;
             let cline = line.show();
+            let (xind, cline, longline) = self.get_line(&cline); 
             self.term.execute(style::SetForegroundColor(style::Color::White))?;
-            let xind = if self.xscroll > 0 { "🞀" } else { " " };
-            print!("{}{:^lwidth$} ", xind, i+self.yscroll+1, lwidth=COL_OFFSET-2);
+            print!("{}{:^lwidth$} ", xind, i + self.yscroll + 1, lwidth=COL_OFFSET-2);
             self.term.execute(style::ResetColor)?;
-            if self.xscroll < cline.len() {
-                if cline.len() <= self.xscroll + cols as usize - COL_OFFSET {
-                    print!("{}", &cline[self.xscroll..]);
-                } else if self.xscroll < cline.len() {
-                    print!("{}", &cline[self.xscroll..self.xscroll + cols as usize - COL_OFFSET]);
-                    /*
-                    self.term.execute(style::SetForegroundColor(style::Color::White))?;
-                    print!("▶");
-                    self.term.execute(style::ResetColor)?;        
-                    */
-                }
+            print!("{}", cline);
+            if longline {
+                self.term.execute(style::SetForegroundColor(style::Color::White))?;
+                print!("{}", RARROW);
+                self.term.execute(style::ResetColor)?;        
             }
             self.term.execute(cursor::MoveToNextLine(1))?;
+        }
+        let (_,rcursor) = cursor::position()?;
+        if rcursor+1 == rows && self.subed.curr_line_num() + 1 != self.subed.num_lines(){
+            self.term.execute(style::SetForegroundColor(style::Color::White))?;
+            print!(" {:^lwidth$} ", DARROW, lwidth=COL_OFFSET-2);
+            self.term.execute(style::ResetColor)?;        
+            self.term.execute(cursor::MoveToPreviousLine(1))?;
         }
         self.term.execute(cursor::RestorePosition)?; 
         
@@ -131,15 +187,49 @@ impl Editor<'_> {
     fn show_post_content(&mut self) -> Result<()> {
         self.term.execute(cursor::SavePosition)?;        
         let cnum = self.subed.curr_line_num();
+        let (cols, rows) = terminal::size()?;        
         for (i,line) in self.subed.get_post_lines().iter().rev().enumerate() {
+            self.term.execute(terminal::Clear(terminal::ClearType::CurrentLine))?;
+            let cline = line.show();
+            let (xind, cline, longline) = self.get_line(&cline); 
             self.term.execute(style::SetForegroundColor(style::Color::White))?;
-            print!("{:^lwidth$} ", i + 2 + cnum, lwidth=COL_OFFSET-1);
+            let xind = if self.xscroll > 0 { "🞀" } else { " " };
+            print!("{}{:^lwidth$} ", xind, i+self.yscroll+self.subed.num_lines_pre() + 1, lwidth=COL_OFFSET-2);
             self.term.execute(style::ResetColor)?;
-            print!("{}",line.show());
+            print!("{}", cline);
+            if longline {
+                self.term.execute(style::SetForegroundColor(style::Color::White))?;
+                print!("{}", RARROW);
+                self.term.execute(style::ResetColor)?;        
+            }
             self.term.execute(cursor::MoveToNextLine(1))?;
+        }
+        let (_,rcursor) = cursor::position()?;
+        if rcursor+1 == rows && self.subed.curr_line_num() + 1 != self.subed.num_lines(){
+            self.term.execute(style::SetForegroundColor(style::Color::White))?;
+            print!(" {:^lwidth$} ", DARROW, lwidth=COL_OFFSET-2);
+            self.term.execute(style::ResetColor)?;        
+            self.term.execute(cursor::MoveToPreviousLine(1))?;
         }
         self.term.execute(cursor::RestorePosition)?;
         
+        Ok(())
+    }
+
+    fn show_line(&mut self, linenum: usize, line: &str) -> Result<()> {
+        self.term.execute(terminal::Clear(terminal::ClearType::CurrentLine))?;
+        self.term.execute(cursor::MoveToColumn(0));
+        let (xind, cline, longline) = self.get_line(line); 
+        self.term.execute(style::SetForegroundColor(style::Color::White))?;
+        print!("{}{:^lwidth$} ", xind, linenum, lwidth=COL_OFFSET-2);
+        self.term.execute(style::ResetColor)?;
+        print!("{}", cline);
+        if longline {
+            self.term.execute(style::SetForegroundColor(style::Color::White))?;
+            print!("{}", RARROW);
+            self.term.execute(style::ResetColor)?;        
+        }
+
         Ok(())
     }
 
@@ -191,43 +281,58 @@ impl Editor<'_> {
                         }
                     }
                     Ok(Event::Key(KeyEvent{ modifiers: keymod, code: KeyCode::Up })) => {
+                        let (_,rows) = terminal::size()?;
+                        let rows = rows as usize;
                         if keymod == KeyModifiers::CONTROL {
-                            //self.subed.move_first();
-                            //self.term.execute(cursor::MoveTo(COL_OFFSET as u16, ROW_OFFSET as u16))?;
-                            self.term.execute(terminal::ScrollUp(1));
+                            self.subed.move_first();
+                            self.term.execute(cursor::MoveTo(COL_OFFSET as u16, ROW_OFFSET as u16))?;
+                            self.setyscroll(0);
                         } else if self.subed.move_up() {
-                            self.term.execute(cursor::MoveToPreviousLine(1))?;
-                            self.term.execute(cursor::MoveToColumn((COL_OFFSET + self.subed.cursor() + 1) as u16))?;                            
+                            let (_,cpos) = cursor::position()?;   
+                            let cpos = cpos as usize;  
+                            if cpos == ROW_OFFSET && self.yscroll > 0 {
+                                self.scroll_up();
+                                self.show_line(self.subed.curr_line_num() + 1, &self.subed.curr_line())?;
+                            } else {
+                                self.term.execute(cursor::MoveToPreviousLine(1))?;
+                            }                     
+                            self.term.execute(cursor::MoveToColumn((COL_OFFSET + self.subed.cursor() + 1) as u16))?;                                
                         }
                     }
                     Ok(Event::Key(KeyEvent{ modifiers: keymod, code: KeyCode::Down })) => {
+                        let (_,rows) = terminal::size()?;
+                        let rows = rows as usize;
                         if keymod == KeyModifiers::CONTROL {
-                            //self.subed.move_last();
-                            //self.term.execute(cursor::MoveTo(COL_OFFSET as u16, ROW_OFFSET as u16 + self.subed.num_lines() as u16 - 1))?;
-                            self.term.execute(terminal::ScrollDown(1));
+                            self.subed.move_last();
+                            self.term.execute(cursor::MoveTo(COL_OFFSET as u16, ROW_OFFSET as u16 + self.subed.num_lines() as u16 - 1))?;
+                            let num_lines = self.subed.num_lines();
+                            if ROW_OFFSET + num_lines + 1 > rows { 
+                                self.setyscroll(ROW_OFFSET + num_lines + 1 - rows);
+                                self.term.execute(cursor::MoveTo(0, (rows-2) as u16))?;
+                            } 
                         } else if self.subed.move_down() {
-                            self.term.execute(cursor::MoveToNextLine(1))?;
-                            self.term.execute(cursor::MoveToColumn((COL_OFFSET + self.subed.cursor() + 1) as u16))?;                            
+                            let (_,cpos) = cursor::position()?; 
+                            let cpos = cpos as usize;  
+                            if cpos == rows - 2 {
+                                self.scroll_down();
+                                self.show_line(self.subed.curr_line_num() + 1, &self.subed.curr_line())?;
+                            } else {
+                                self.term.execute(cursor::MoveToNextLine(1))?;
+                            }
                         }
+                        self.term.execute(cursor::MoveToColumn((COL_OFFSET + self.subed.cursor() + 1) as u16))?;                            
                     }
                     Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Enter })) => {
                         let prevline = self.subed.insert_newline();
                         self.term.execute(terminal::Clear(terminal::ClearType::CurrentLine))?;
                         self.term.execute(terminal::Clear(terminal::ClearType::FromCursorDown))?;
                         
-                        self.term.execute(cursor::MoveToColumn(0))?;
-                        self.term.execute(style::SetForegroundColor(style::Color::White))?;
-                        print!("{:^lwidth$} ", self.subed.curr_line_num(), lwidth=COL_OFFSET-1);
-                        self.term.execute(style::ResetColor)?;
-                        print!("{}", prevline);
+                        self.show_line(self.subed.curr_line_num(), &prevline);
                         self.term.execute(cursor::MoveToNextLine(1))?;
 
-                        self.term.execute(style::SetForegroundColor(style::Color::White))?;
-                        print!("{:^lwidth$} ", self.subed.curr_line_num()+1, lwidth=COL_OFFSET-1);
-                        self.term.execute(style::ResetColor)?;
-                        print!("{}", self.subed.curr_line());
-
+                        self.show_line(self.subed.curr_line_num()+1, &self.subed.curr_line());
                         self.term.execute(cursor::MoveToNextLine(1))?;
+                        
                         self.show_post_content()?;
                         self.term.execute(cursor::MoveToPreviousLine(1))?;
                         self.term.execute(cursor::MoveToColumn((COL_OFFSET + self.subed.cursor() + 1) as u16))?;                            
@@ -239,11 +344,8 @@ impl Editor<'_> {
                                 self.term.execute(terminal::Clear(terminal::ClearType::FromCursorDown))?;
                                 
                                 self.term.execute(cursor::MoveToPreviousLine(1))?; 
-                                self.term.execute(style::SetForegroundColor(style::Color::White))?;
-                                print!("{:^lwidth$} ", self.subed.curr_line_num()+1, lwidth=COL_OFFSET-1);
-                                self.term.execute(style::ResetColor)?;        
-
-                                print!("{}", self.subed.curr_line());
+                                self.show_line(self.subed.curr_line_num()+1, &self.subed.curr_line());
+                                
                                 self.term.execute(cursor::MoveToNextLine(1))?;
                                 self.show_post_content()?;
                                 self.term.execute(cursor::MoveToPreviousLine(1))?;
@@ -264,14 +366,9 @@ impl Editor<'_> {
                             subeditor::DEL::NewLine(newcursor) => {
                                 self.term.execute(terminal::Clear(terminal::ClearType::CurrentLine))?;
                                 self.term.execute(terminal::Clear(terminal::ClearType::FromCursorDown))?;
-                                self.term.execute(cursor::MoveToColumn(0))?;
-                                
-                                self.term.execute(style::SetForegroundColor(style::Color::White))?;
-                                print!("{:^lwidth$} ", self.subed.curr_line_num()+1, lwidth=COL_OFFSET-1);
-                                self.term.execute(style::ResetColor)?;        
-                                print!("{}", self.subed.curr_line());
-
+                                self.show_line(self.subed.curr_line_num()+1, &self.subed.curr_line())?;
                                 self.term.execute(cursor::MoveToNextLine(1))?;
+
                                 self.show_post_content()?;
                                 self.term.execute(cursor::MoveToPreviousLine(1))?;
                                 self.term.execute(cursor::MoveToColumn(COL_OFFSET as u16 + newcursor as u16 + 1))?;

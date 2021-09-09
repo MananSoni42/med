@@ -66,11 +66,31 @@ impl SubEditor {
         self.prelines.len() + self.postlines.len()
     }
 
+    pub fn num_lines_pre(&self) -> usize {
+        self.prelines.len()
+    }
+
+    pub fn num_lines_post(&self) -> usize {
+        self.postlines.len()
+    }
+    
     pub fn curr_line(&self) -> String {
         let curr_line = self.curr_line_num();
         self.prelines[curr_line].show()
     }
 
+    pub fn get_line(&self, i: usize) -> Option<String> {
+        if 0 <= i && i < self.num_lines() {
+            if i < self.prelines.len() {
+                Some(self.prelines[i].show())
+            } else {
+                Some(self.postlines[self.num_lines()-1-i].show())
+            }
+        } else {
+            None
+        }
+
+    }
     pub fn get_lines(&self) -> Vec<&line::Line> {
         self.prelines.iter().chain(self.postlines.iter().rev()).collect()
     }
