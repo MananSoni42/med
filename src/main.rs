@@ -14,8 +14,9 @@ fn main() -> Result<(), io::Error>{
     };
 
     if let Err(e) = ed.start() {
-        println!("Med stopped unexpectedly :( ({})", e);
         ed.exit()?;
+        println!("Med stopped unexpectedly!");
+        println!("Error: {}", e);
         std::process::exit(1);
     }
     ed.exit()?;

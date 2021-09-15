@@ -122,10 +122,10 @@ impl Editor<'_> {
             } else if self.xscroll < cline.len() {
                 (xind, &cline[self.xscroll..self.xscroll + cols as usize - COL_OFFSET - 1], true)
             } else {
-                (xind, "", false)
+                (" ", "", false)
             }
         } else {
-            (xind, "", false)
+            (" ", "", false)
         }
 
     }
@@ -360,14 +360,34 @@ impl Editor<'_> {
                                 self.term.execute(cursor::MoveToNextLine(1))?;
                                 self.show_post_content()?;
                                 self.term.execute(cursor::MoveToPreviousLine(1))?;
-                                self.term.execute(cursor::MoveToColumn(COL_OFFSET as u16 + newcursor as u16 + 1))?;
+                                let (cols,_) = terminal::size()?;   
+                                if COL_OFFSET + newcursor >= cols as usize {
+                                    self.term.execute(cursor::MoveToColumn(cols-1))?;
+                                } else {
+                                    self.term.execute(cursor::MoveToColumn(COL_OFFSET as u16 + newcursor as u16 + 1))?;
+                                }
                             } 
                             subeditor::DEL::Yes => {
-                                self.term.execute(cursor::MoveLeft(1))?;
-                                self.term.execute(terminal::Clear(terminal::ClearType::UntilNewLine))?;
-                                self.term.execute(cursor::SavePosition)?;                
-                                print!("{}", self.subed.show_curr_post_line());
-                                self.term.execute(cursor::RestorePosition)?;                
+                                let cline = self.subed.show_curr_line();
+                                let cpline = self.subed.show_curr_post_line();
+                                let (cols,_) = terminal::size()?;   
+                                let (cpos,_) = cursor::position()?;
+
+                                if self.xscroll > 0 && cpos as usize == COL_OFFSET {
+                                    self.setxscroll(self.xscroll-1);
+                                } else {
+                                    self.term.execute(terminal::Clear(terminal::ClearType::UntilNewLine))?;
+                                    self.term.execute(cursor::MoveLeft(1))?;
+                                    self.term.execute(cursor::SavePosition)?;                    
+                                    print!("{}", cpline);
+                                    if cpos as usize + cpline.len() >= cols as usize {
+                                        self.term.execute(cursor::MoveToColumn(cols as u16))?;    
+                                        self.term.execute(style::SetForegroundColor(style::Color::White))?;
+                                        print!("{}", RARROW);    
+                                        self.term.execute(style::ResetColor)?;        
+                                    }
+                                    self.term.execute(cursor::RestorePosition)?;                
+                                }
                             }
                             subeditor::DEL::No => { }
                         }
@@ -385,10 +405,23 @@ impl Editor<'_> {
                                 self.term.execute(cursor::MoveToColumn(COL_OFFSET as u16 + newcursor as u16 + 1))?;
                             } 
                             subeditor::DEL::Yes => {
+                                let cline = self.subed.show_curr_line();
+                                let cpline = self.subed.show_curr_post_line();
+                                let (cols,_) = terminal::size()?;   
+                                let (cpos,_) = cursor::position()?;
                                 self.term.execute(terminal::Clear(terminal::ClearType::UntilNewLine))?;
+
                                 self.term.execute(cursor::SavePosition)?;                
                                 print!("{}", self.subed.show_curr_post_line());
+
+                                if cpos as usize + cpline.len() >= cols as usize {
+                                    self.term.execute(cursor::MoveToColumn(cols as u16))?;    
+                                    self.term.execute(style::SetForegroundColor(style::Color::White))?;
+                                    print!("{}", RARROW);    
+                                    self.term.execute(style::ResetColor)?;        
+                                }
                                 self.term.execute(cursor::RestorePosition)?;
+
                             }
                             subeditor::DEL::No => { }
                         }
@@ -401,11 +434,35 @@ impl Editor<'_> {
                             break;
                         } else {
                             self.subed.insert(keych);
+                            let (cols,_) = terminal::size()?;   
+                            let cols = cols as usize;  
+                            let (cpos,_) = cursor::position()?;
+                            let cpos = cpos as usize;
                             self.term.execute(terminal::Clear(terminal::ClearType::UntilNewLine))?;
+
                             print!("{}", keych);
-                            self.term.execute(cursor::SavePosition)?;                
-                            print!("{}", self.subed.show_curr_post_line());
-                            self.term.execute(cursor::RestorePosition)?;
+                            self.term.execute(cursor::SavePosition)?;
+
+                            if COL_OFFSET + self.subed.linelen() + 1 < cols {
+                                print!("{}", self.subed.show_curr_post_line());
+                                self.term.execute(cursor::RestorePosition)?;        
+                            } else {
+                                self.term.execute(cursor::MoveToColumn(cols as u16))?;    
+                                self.term.execute(style::SetForegroundColor(style::Color::White))?;
+                                print!("{}", RARROW);
+                                self.term.execute(style::ResetColor)?;        
+                                if cpos + 1 + 1 > cols {
+                                    self.setxscroll(self.xscroll+1);
+                                    self.term.execute(cursor::RestorePosition)?;    
+                                    self.term.execute(cursor::MoveLeft(1));
+                                } else {
+                                    self.term.execute(cursor::RestorePosition)?;        
+                                    self.term.execute(cursor::SavePosition)?;
+                                    print!("{}", &self.subed.show_curr_post_line()[..cols-2-cpos]);
+                                    self.term.execute(cursor::RestorePosition)?;        
+                                }
+                            }
+
                         }
                     }
                     Ok(Event::Key(KeyEvent{ modifiers: keymod, code: KeyCode::F(5) })) => {
