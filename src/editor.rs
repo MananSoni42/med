@@ -16,7 +16,8 @@ pub struct Editor<'a> {
     pub subed: subeditor::SubEditor,
     pub fname: &'a str,
     pub xscroll: usize,
-    pub yscroll: usize
+    pub yscroll: usize,
+    pub size: (u16,u16)
 }
 
 static FNAME_WIDTH: usize = 20; // even, more than 3
@@ -81,7 +82,7 @@ impl Editor<'_> {
 
     fn scroll_up(&mut self) -> Result<()> {
         self.yscroll -= 1;
-        let (_,rows) = terminal::size().unwrap();
+        let (_,rows) = self.size;
         let rows = rows as usize;
         self.term.execute(terminal::ScrollDown(1));
         self.show_header();
@@ -97,7 +98,7 @@ impl Editor<'_> {
 
     fn scroll_down(&mut self) -> Result<()> {
         self.yscroll += 1;
-        let (_,rows) = terminal::size().unwrap();
+        let (_,rows) = self.size;
         let rows = rows as usize;
         self.term.execute(terminal::ScrollUp(1));
         self.show_header();
@@ -113,7 +114,7 @@ impl Editor<'_> {
     }
 
     pub fn get_line<'a>(&self, cline: &'a str) -> (&'a str, &'a str, bool) {
-        let (cols,_) = terminal::size().unwrap();
+        let (cols,_) = self.size;
         let xind = if self.xscroll > 0 { LARROW } else { " " };
 
         if self.xscroll < cline.len() {
@@ -136,7 +137,7 @@ impl Editor<'_> {
 
         self.term.execute(cursor::MoveTo(0,0))?;
         
-        let (cols,_) = terminal::size()?;
+        let (cols,_) = self.size;
         let title_width: usize = cols as usize - FNAME_WIDTH - 3;
 
         self.term.execute(cursor::MoveTo(0,0))?;
@@ -156,7 +157,7 @@ impl Editor<'_> {
     fn show_content(&mut self) -> Result<()> {
         self.term.execute(cursor::SavePosition)?;        
         self.term.execute(cursor::MoveTo(0, ROW_OFFSET as u16))?;
-        let (cols, rows) = terminal::size()?;        
+        let (cols, rows) = self.size;        
         for (i,line) in self.subed.get_lines().iter().skip(self.yscroll).take(rows as usize - ROW_OFFSET - 1).enumerate() {
             self.term.execute(terminal::Clear(terminal::ClearType::CurrentLine))?;
             let cline = line.show();
@@ -187,7 +188,7 @@ impl Editor<'_> {
     fn show_post_content(&mut self) -> Result<()> {
         self.term.execute(cursor::SavePosition)?;        
         let cnum = self.subed.curr_line_num();
-        let (cols, rows) = terminal::size()?;        
+        let (cols, rows) = self.size;        
         let (_,rcursor) = cursor::position()?;
 
         for (i,line) in self.subed.get_post_lines().iter().rev().enumerate() {
@@ -197,7 +198,7 @@ impl Editor<'_> {
             let (xind, cline, longline) = self.get_line(&cline); 
             self.term.execute(style::SetForegroundColor(style::Color::White))?;
             let xind = if self.xscroll > 0 { "🞀" } else { " " };
-            print!("{}{:^lwidth$} ", xind, i+self.yscroll+self.subed.num_lines_pre() + 1, lwidth=COL_OFFSET-2);
+            print!("{}{:^lwidth$} ", xind, i+self.subed.num_lines_pre() + 1, lwidth=COL_OFFSET-2);
             self.term.execute(style::ResetColor)?;
             print!("{}", cline);
             if longline {
@@ -265,18 +266,18 @@ impl Editor<'_> {
                         }
                     }
                     Ok(Event::Key(KeyEvent{ modifiers: keymod, code: KeyCode::Right })) => {
-                        let (cols,_) = terminal::size()?;        
+                        let (cols,_) = self.size;        
                         let cols = cols as usize;
                         if keymod == KeyModifiers::CONTROL {
                             let llen = self.subed.linelen();
                             self.subed.move_end();
-                            if COL_OFFSET + llen + 1 > cols {
+                            if COL_OFFSET + llen > cols {
                                 self.setxscroll(llen + COL_OFFSET + 1 - cols);
                             }
                             self.term.execute(cursor::MoveToColumn((COL_OFFSET +llen + 1) as u16))?;
                         } else if self.subed.move_right() {
                             let (cpos,_) = cursor::position()?;
-                            if cpos == (cols-2) as u16 {
+                            if cpos == (cols-1) as u16 {
                                 self.setxscroll(self.xscroll+1);
                             } else {
                                 self.term.execute(cursor::MoveRight(1))?;
@@ -284,7 +285,7 @@ impl Editor<'_> {
                         }
                     }
                     Ok(Event::Key(KeyEvent{ modifiers: keymod, code: KeyCode::Up })) => {
-                        let (_,rows) = terminal::size()?;
+                        let (_,rows) = self.size;
                         let rows = rows as usize;
                         if keymod == KeyModifiers::CONTROL {
                             self.subed.move_first();
@@ -303,7 +304,7 @@ impl Editor<'_> {
                         }
                     }
                     Ok(Event::Key(KeyEvent{ modifiers: keymod, code: KeyCode::Down })) => {
-                        let (_,rows) = terminal::size()?;
+                        let (_,rows) = self.size;
                         let rows = rows as usize;
                         if keymod == KeyModifiers::CONTROL {
                             self.subed.move_last();
@@ -331,7 +332,7 @@ impl Editor<'_> {
                         self.term.execute(terminal::Clear(terminal::ClearType::FromCursorDown))?;
 
                         let (_,cpos) = cursor::position()?;   
-                        let (_,rows) = terminal::size()?;
+                        let (_,rows) = self.size;
 
                         self.show_line(self.subed.curr_line_num(), &prevline);
 
@@ -351,33 +352,42 @@ impl Editor<'_> {
                     Ok(Event::Key(KeyEvent{ modifiers: _keymod, code: KeyCode::Backspace })) => {
                         match self.subed.backspace() {
                             subeditor::DEL::NewLine(newcursor) => {
-                                self.term.execute(terminal::Clear(terminal::ClearType::CurrentLine))?;
-                                self.term.execute(terminal::Clear(terminal::ClearType::FromCursorDown))?;
                                 
-                                self.term.execute(cursor::MoveToPreviousLine(1))?; 
-                                self.show_line(self.subed.curr_line_num()+1, &self.subed.curr_line());
-                                
-                                self.term.execute(cursor::MoveToNextLine(1))?;
-                                self.show_post_content()?;
-                                self.term.execute(cursor::MoveToPreviousLine(1))?;
-                                let (cols,_) = terminal::size()?;   
+                                let (cols,_) = self.size;   
+                                let (_,cpos) = cursor::position()?;   
+                                let cpos = cpos as usize;
+                            
+                                if self.yscroll > 0 && cpos == ROW_OFFSET {
+                                    self.scroll_up()?;
+                                    self.term.execute(cursor::MoveToColumn(0))?;
+                                    self.show_line(self.subed.curr_line_num()+1, &self.subed.curr_line());
+                                } else {
+                                    self.term.execute(terminal::Clear(terminal::ClearType::CurrentLine))?;
+                                    self.term.execute(terminal::Clear(terminal::ClearType::FromCursorDown))?;
+                                    self.term.execute(cursor::MoveToPreviousLine(1))?; 
+                                    self.show_line(self.subed.curr_line_num()+1, &self.subed.curr_line());
+                                    self.term.execute(cursor::MoveToNextLine(1))?;
+                                    self.show_post_content()?;
+                                    self.term.execute(cursor::MoveToPreviousLine(1))?;
+                                }
                                 if COL_OFFSET + newcursor >= cols as usize {
+                                    for _ in 0..(newcursor + COL_OFFSET - cols as usize + 2) { self.subed.move_left(); }
                                     self.term.execute(cursor::MoveToColumn(cols-1))?;
                                 } else {
                                     self.term.execute(cursor::MoveToColumn(COL_OFFSET as u16 + newcursor as u16 + 1))?;
-                                }
-                            } 
+                                }                
+                        } 
                             subeditor::DEL::Yes => {
                                 let cline = self.subed.show_curr_line();
                                 let cpline = self.subed.show_curr_post_line();
-                                let (cols,_) = terminal::size()?;   
+                                let (cols,_) = self.size;   
                                 let (cpos,_) = cursor::position()?;
 
                                 if self.xscroll > 0 && cpos as usize == COL_OFFSET {
                                     self.setxscroll(self.xscroll-1);
                                 } else {
-                                    self.term.execute(terminal::Clear(terminal::ClearType::UntilNewLine))?;
                                     self.term.execute(cursor::MoveLeft(1))?;
+                                    self.term.execute(terminal::Clear(terminal::ClearType::UntilNewLine))?;
                                     self.term.execute(cursor::SavePosition)?;                    
                                     print!("{}", cpline);
                                     if cpos as usize + cpline.len() >= cols as usize {
@@ -407,7 +417,7 @@ impl Editor<'_> {
                             subeditor::DEL::Yes => {
                                 let cline = self.subed.show_curr_line();
                                 let cpline = self.subed.show_curr_post_line();
-                                let (cols,_) = terminal::size()?;   
+                                let (cols,_) = self.size;   
                                 let (cpos,_) = cursor::position()?;
                                 self.term.execute(terminal::Clear(terminal::ClearType::UntilNewLine))?;
 
@@ -434,7 +444,7 @@ impl Editor<'_> {
                             break;
                         } else {
                             self.subed.insert(keych);
-                            let (cols,_) = terminal::size()?;   
+                            let (cols,_) = self.size;   
                             let cols = cols as usize;  
                             let (cpos,_) = cursor::position()?;
                             let cpos = cpos as usize;
@@ -454,7 +464,7 @@ impl Editor<'_> {
                                 if cpos + 1 + 1 > cols {
                                     self.setxscroll(self.xscroll+1);
                                     self.term.execute(cursor::RestorePosition)?;    
-                                    self.term.execute(cursor::MoveLeft(1));
+                                    //self.term.execute(cursor::MoveLeft(1));
                                 } else {
                                     self.term.execute(cursor::RestorePosition)?;        
                                     self.term.execute(cursor::SavePosition)?;
@@ -475,6 +485,7 @@ impl Editor<'_> {
                         self.term.execute(cursor::MoveTo(COL_OFFSET as u16, ROW_OFFSET as u16))?;
                     }
                     Ok(Event::Resize(_,_)) => {
+                        self.size = terminal::size()?;
                         self.show_content()?;
                         self.show_header()?;                
                     }

@@ -80,7 +80,7 @@ impl SubEditor {
     }
 
     pub fn get_line(&self, i: usize) -> Option<String> {
-        if 0 <= i && i < self.num_lines() {
+        if i < self.num_lines() {
             if i < self.prelines.len() {
                 Some(self.prelines[i].show())
             } else {

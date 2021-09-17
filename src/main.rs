@@ -1,7 +1,8 @@
 mod editor;
 use std::io::{self,stdout};
+use crossterm::{terminal};
 
-fn main() -> Result<(), io::Error>{
+fn main() -> Result<(), io::Error> {
 
     let fname = "/home/manan/Projects/rust-editor/files/test1.txt";
 
@@ -11,6 +12,7 @@ fn main() -> Result<(), io::Error>{
         fname: fname,
         xscroll: 0,
         yscroll: 0,
+        size: terminal::size().unwrap()
     };
 
     if let Err(e) = ed.start() {
